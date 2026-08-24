@@ -44,7 +44,7 @@ class UrllibTransport:
     ) -> HttpResponse:
         request = Request(url, data=body, headers=dict(headers), method=method)
         try:
-            with urlopen(request, timeout=timeout) as response:  # noqa: S310
+            with urlopen(request, timeout=timeout) as response:
                 return HttpResponse(
                     status=response.status,
                     headers=dict(response.headers.items()),
