@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "affiliate-mate"
-version = "0.1.0"
-description = "Open-source opportunity scoring engine for evidence-based affiliate product research."
+version = "0.2.0"
+description = "Open-source opportunity scoring and evidence engine for affiliate product research."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

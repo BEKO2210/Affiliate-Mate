@@ -32,6 +32,15 @@ DEFAULT_WEIGHTS = {
     "evidence_quality": 0.05,
 }
 
+COMPONENT_LABELS = {
+    "economics": "economics",
+    "demand": "search demand",
+    "competition_opportunity": "competition opportunity",
+    "buyer_intent": "buyer intent",
+    "content_gap": "content gap",
+    "evidence_quality": "evidence quality",
+}
+
 
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
@@ -50,6 +59,15 @@ def _demand_score(monthly_searches: int) -> float:
     return _clamp((log1p(monthly_searches) / log1p(10_000)) * 100.0)
 
 
+def _validate_weights(weights: dict[str, float]) -> None:
+    if set(weights) != set(DEFAULT_WEIGHTS):
+        raise ValueError(f"weights must contain exactly: {sorted(DEFAULT_WEIGHTS)}")
+    if abs(sum(weights.values()) - 1.0) > 1e-9:
+        raise ValueError("weights must sum to 1.0")
+    if any(weight < 0 for weight in weights.values()):
+        raise ValueError("weights must be non-negative")
+
+
 def score_candidate(
     candidate: ProductCandidate,
     weights: dict[str, float] | None = None,
@@ -57,12 +75,7 @@ def score_candidate(
     """Score a candidate from 0 to 100 using transparent, inspectable inputs."""
 
     active_weights = DEFAULT_WEIGHTS if weights is None else weights
-    if set(active_weights) != set(DEFAULT_WEIGHTS):
-        raise ValueError(f"weights must contain exactly: {sorted(DEFAULT_WEIGHTS)}")
-    if abs(sum(active_weights.values()) - 1.0) > 1e-9:
-        raise ValueError("weights must sum to 1.0")
-    if any(weight < 0 for weight in active_weights.values()):
-        raise ValueError("weights must be non-negative")
+    _validate_weights(active_weights)
 
     components = {
         "economics": _economics_score(candidate),
@@ -90,6 +103,39 @@ def score_candidate(
     )
 
 
+def score_contributions(
+    breakdown: ScoreBreakdown,
+    weights: dict[str, float] | None = None,
+) -> dict[str, float]:
+    """Return each component's weighted point contribution to the 0-100 score."""
+
+    active_weights = DEFAULT_WEIGHTS if weights is None else weights
+    _validate_weights(active_weights)
+    return {
+        key: round(getattr(breakdown, key) * active_weights[key], 2)
+        for key in active_weights
+    }
+
+
+def explain_score(
+    breakdown: ScoreBreakdown,
+    weights: dict[str, float] | None = None,
+) -> tuple[str, ...]:
+    """Generate deterministic, audit-friendly explanations for a score."""
+
+    contributions = score_contributions(breakdown, weights)
+    strongest = max(contributions, key=contributions.__getitem__)
+    weakest = min(contributions, key=contributions.__getitem__)
+    return (
+        f"Strongest contribution: {COMPONENT_LABELS[strongest]} "
+        f"(+{contributions[strongest]:.2f} points).",
+        f"Weakest contribution: {COMPONENT_LABELS[weakest]} "
+        f"(+{contributions[weakest]:.2f} points).",
+        f"Economics assumption: {breakdown.commission_per_sale:.2f} commission per sale; "
+        f"base EV/1K is {breakdown.estimated_value_per_1000_views:.2f}.",
+    )
+
+
 def rank_candidates(
     candidates: Iterable[ProductCandidate],
 ) -> list[tuple[ProductCandidate, ScoreBreakdown]]:
@@ -101,6 +147,7 @@ def rank_candidates(
         key=lambda item: (
             item[1].opportunity_score,
             item[1].estimated_value_per_1000_views,
+            item[0].product_id,
         ),
         reverse=True,
     )

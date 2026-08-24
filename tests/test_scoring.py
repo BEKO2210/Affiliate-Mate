@@ -1,5 +1,10 @@
 from affiliate_mate.models import ProductCandidate
-from affiliate_mate.scoring import rank_candidates, score_candidate
+from affiliate_mate.scoring import (
+    explain_score,
+    rank_candidates,
+    score_candidate,
+    score_contributions,
+)
 
 
 def candidate(**overrides):
@@ -67,3 +72,18 @@ def test_invalid_range_is_rejected():
         assert "youtube_competition" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_contributions_sum_to_score_with_rounding_tolerance():
+    score = score_candidate(candidate())
+    contributions = score_contributions(score)
+    assert abs(sum(contributions.values()) - score.opportunity_score) <= 0.02
+
+
+def test_score_explanation_is_deterministic_and_mentions_economics():
+    score = score_candidate(candidate())
+    first = explain_score(score)
+    second = explain_score(score)
+    assert first == second
+    assert len(first) == 3
+    assert "commission per sale" in first[2]
