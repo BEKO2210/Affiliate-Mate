@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import log1p
-from typing import Iterable
 
 from .models import ProductCandidate
 
