@@ -33,6 +33,8 @@ v0.3 adds a strict acquisition boundary on top of the v0.2 Evidence Engine:
 - separate `affiliate-mate-catalog` CLI
 - adapter contract tests that require no live Amazon credentials
 
+Current CI verification: **78 tests pass** on both Python 3.11 and 3.12, with Ruff and bytecode compilation also passing.
+
 It still performs **no HTML scraping, no automatic posting, no LLM calls, and no invented commission rates**.
 
 ## Architecture in one minute
