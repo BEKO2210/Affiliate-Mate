@@ -6,7 +6,6 @@ from affiliate_mate.evidence import EvidenceObservation, SQLiteEvidenceStore
 from affiliate_mate.models import ProductCandidate
 from affiliate_mate.resolution import resolve_candidate_from_store
 
-
 NOW = datetime(2026, 8, 25, 10, 0, tzinfo=UTC)
 
 
@@ -100,6 +99,8 @@ def test_resolver_fails_closed_on_price_currency_mismatch(tmp_path):
 
 
 def test_resolver_validates_confidence_threshold(tmp_path):
-    with SQLiteEvidenceStore(tmp_path / "evidence.sqlite3") as store:
-        with pytest.raises(ValueError, match="between 0 and 1"):
-            resolve_candidate_from_store(candidate(), store, min_confidence=1.1)
+    with (
+        SQLiteEvidenceStore(tmp_path / "evidence.sqlite3") as store,
+        pytest.raises(ValueError, match="between 0 and 1"),
+    ):
+        resolve_candidate_from_store(candidate(), store, min_confidence=1.1)

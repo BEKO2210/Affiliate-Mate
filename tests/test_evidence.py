@@ -4,7 +4,6 @@ import pytest
 
 from affiliate_mate.evidence import EvidenceObservation, SQLiteEvidenceStore
 
-
 NOW = datetime(2026, 8, 25, 10, 0, tzinfo=UTC)
 
 
@@ -26,7 +25,7 @@ def observation(**overrides):
 
 def test_observation_requires_timezone_aware_timestamp():
     with pytest.raises(ValueError, match="timezone-aware"):
-        observation(observed_at=datetime(2026, 8, 25, 10, 0))
+        observation(observed_at=datetime(2026, 8, 25, 10, 0, tzinfo=None))
 
 
 def test_observation_rejects_invalid_confidence():

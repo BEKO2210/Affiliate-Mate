@@ -17,7 +17,7 @@ from .scoring import rank_candidates
 def _parse_datetime(value: str | None) -> datetime | None:
     if value is None:
         return None
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise argparse.ArgumentTypeError(
             "timestamps must include a timezone, e.g. 2026-08-25T12:00:00Z"

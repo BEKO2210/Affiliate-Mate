@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 
 from affiliate_mate.cli import main
 
-
 CSV = (
     "product_id,title,marketplace,currency,price,commission_rate,monthly_searches,"
     "youtube_competition,buyer_intent,content_gap,evidence_quality,estimated_ctr,"

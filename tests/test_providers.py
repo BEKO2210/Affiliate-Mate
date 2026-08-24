@@ -41,6 +41,6 @@ def test_evidence_provider_does_not_decide_opportunity():
         buyer_intent=60,
         content_gap=60,
     )
-    observation = list(DemoProvider().collect(candidate))[0]
+    observation = next(iter(DemoProvider().collect(candidate)))
     assert observation.signal == "price"
     assert observation.value == 100

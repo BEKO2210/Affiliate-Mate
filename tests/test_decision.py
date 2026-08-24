@@ -3,7 +3,6 @@ import pytest
 from affiliate_mate.decision import EvaluationPolicy, evaluate_candidate
 from affiliate_mate.models import ProductCandidate
 
-
 REQUIRED = frozenset(
     {
         "product_id",

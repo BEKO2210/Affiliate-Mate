@@ -6,7 +6,6 @@ from affiliate_mate.analysis import (
 from affiliate_mate.io import CandidateInput
 from affiliate_mate.models import ProductCandidate
 
-
 REQUIRED = frozenset(
     {
         "monthly_searches",

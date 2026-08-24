@@ -89,12 +89,15 @@ def resolve_candidate_from_store(
         if observation.confidence < min_confidence:
             skipped.append(observation)
             continue
-        if signal == "price" and observation.unit is not None:
-            if observation.unit.upper() != candidate.currency.upper():
-                raise ValueError(
-                    "Price evidence currency mismatch: "
-                    f"{observation.unit} != {candidate.currency}"
-                )
+        if (
+            signal == "price"
+            and observation.unit is not None
+            and observation.unit.upper() != candidate.currency.upper()
+        ):
+            raise ValueError(
+                "Price evidence currency mismatch: "
+                f"{observation.unit} != {candidate.currency}"
+            )
         updates[signal] = _coerce_signal_value(signal, observation.value)
         applied.append(observation)
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from math import isfinite
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 SCHEMA_VERSION = "1"
 
@@ -27,7 +27,7 @@ def _iso(value: datetime | None) -> str | None:
 def _parse_iso(value: str | None) -> datetime | None:
     if value is None:
         return None
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+    return datetime.fromisoformat(value).astimezone(UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,7 +309,7 @@ class SQLiteEvidenceStore:
             self._connection.close()
             self._connection = None
 
-    def __enter__(self) -> SQLiteEvidenceStore:
+    def __enter__(self) -> Self:
         self.initialize()
         return self
 

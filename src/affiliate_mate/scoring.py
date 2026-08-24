@@ -127,12 +127,18 @@ def explain_score(
     strongest = max(contributions, key=contributions.__getitem__)
     weakest = min(contributions, key=contributions.__getitem__)
     return (
-        f"Strongest contribution: {COMPONENT_LABELS[strongest]} "
-        f"(+{contributions[strongest]:.2f} points).",
-        f"Weakest contribution: {COMPONENT_LABELS[weakest]} "
-        f"(+{contributions[weakest]:.2f} points).",
-        f"Economics assumption: {breakdown.commission_per_sale:.2f} commission per sale; "
-        f"base EV/1K is {breakdown.estimated_value_per_1000_views:.2f}.",
+        (
+            f"Strongest contribution: {COMPONENT_LABELS[strongest]} "
+            f"(+{contributions[strongest]:.2f} points)."
+        ),
+        (
+            f"Weakest contribution: {COMPONENT_LABELS[weakest]} "
+            f"(+{contributions[weakest]:.2f} points)."
+        ),
+        (
+            f"Economics assumption: {breakdown.commission_per_sale:.2f} commission per sale; "
+            f"base EV/1K is {breakdown.estimated_value_per_1000_views:.2f}."
+        ),
     )
 
 
