@@ -1,0 +1,5 @@
+product_id,title,marketplace,currency,price,commission_rate,monthly_searches,youtube_competition,buyer_intent,content_gap,evidence_quality,estimated_ctr,estimated_conversion_rate
+demo-gps-1,Premium GPS Navigator,DE,EUR,349.00,0.03,2400,42,82,70,75,0.045,0.028
+demo-dashcam-1,4K Dash Camera,DE,EUR,189.00,0.04,8100,68,78,55,80,0.050,0.032
+demo-projector-1,Portable Mini Projector,DE,EUR,129.00,0.04,12000,88,62,30,70,0.038,0.020
+demo-headphones-1,Studio Headphones,DE,EUR,299.00,0.035,3600,35,86,78,85,0.055,0.034
