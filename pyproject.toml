@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "affiliate-mate"
-version = "0.2.0"
-description = "Open-source opportunity scoring and evidence engine for affiliate product research."
+version = "0.3.0"
+description = "Open-source evidence engine and catalog integration toolkit for affiliate research."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -21,6 +21,7 @@ classifiers = [
 
 [project.scripts]
 affiliate-mate = "affiliate_mate.cli:main"
+affiliate-mate-catalog = "affiliate_mate.catalog_cli:main"
 
 [project.optional-dependencies]
 dev = [
