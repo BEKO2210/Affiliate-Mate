@@ -1,7 +1,5 @@
 """Credential-free catalog provider for demos, tests, and contributor workflows."""
 
-from __future__ import annotations
-
 from .catalog import CatalogItem
 
 
