@@ -1,0 +1,5 @@
+marketplace,category,commission_rate
+DE,ExampleElectronics,0.0300
+DE,ExampleKitchen,0.0400
+US,ExampleElectronics,0.0250
+*,*,0.0100
