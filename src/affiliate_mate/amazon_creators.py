@@ -1,18 +1,15 @@
 """Amazon Creators API catalog adapter with OAuth token caching and fail-closed parsing."""
 
-from __future__ import annotations
-
 import json
 import os
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Self
 
 from .catalog import CatalogItem
 from .http_client import HttpRequestError, JsonHttpClient
-
 
 CREATORS_API_BASE_URL = "https://creatorsapi.amazon/catalog/v1"
 TOKEN_SCOPE = "creatorsapi::default"
@@ -55,7 +52,6 @@ _MARKETPLACES = {
     "US": AmazonMarketplace("US", "www.amazon.com", "USD"),
 }
 
-
 DEFAULT_RESOURCES = (
     "itemInfo.title",
     "itemInfo.byLineInfo",
@@ -86,7 +82,7 @@ class AmazonCreatorsCredentials:
         return TOKEN_ENDPOINTS[self.version]
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> AmazonCreatorsCredentials:
+    def from_env(cls, env: Mapping[str, str] | None = None) -> Self:
         values = os.environ if env is None else env
         names = {
             "credential_id": "AMAZON_CREATORS_CREDENTIAL_ID",
@@ -96,7 +92,8 @@ class AmazonCreatorsCredentials:
         }
         missing = [name for name in names.values() if not values.get(name, "").strip()]
         if missing:
-            raise ValueError(f"missing required Amazon environment variables: {', '.join(missing)}")
+            joined = ", ".join(missing)
+            raise ValueError(f"missing required Amazon environment variables: {joined}")
         return cls(**{key: values[name] for key, name in names.items()})
 
 
@@ -120,14 +117,14 @@ class AmazonCreatorsProtocolError(RuntimeError):
 
 
 class AmazonCreatorsClient:
-    """Low-level Creators API client. Network I/O is injectable and fully mockable."""
+    """Low-level Creators API client with injectable HTTP and time sources."""
 
     def __init__(
         self,
         credentials: AmazonCreatorsCredentials,
         *,
         http: JsonHttpClient | None = None,
-        monotonic: Any = time.monotonic,
+        monotonic: Callable[[], float] = time.monotonic,
         token_expiry_skew_seconds: float = 30.0,
     ) -> None:
         if token_expiry_skew_seconds < 0:
@@ -168,13 +165,7 @@ class AmazonCreatorsClient:
             "resources": list(resources),
         }
         data = self._catalog_request("searchItems", spec, payload)
-        result = data.get("searchResult")
-        if not isinstance(result, dict):
-            raise AmazonCreatorsProtocolError("search response missing searchResult object")
-        items = result.get("items", [])
-        if not isinstance(items, list):
-            raise AmazonCreatorsProtocolError("searchResult.items must be an array")
-        return [_parse_catalog_item(item, spec) for item in items]
+        return _items_from_result(data, "searchResult", spec)
 
     def get_items(
         self,
@@ -197,13 +188,7 @@ class AmazonCreatorsClient:
             "resources": list(resources),
         }
         data = self._catalog_request("getItems", spec, payload)
-        result = data.get("itemsResult")
-        if not isinstance(result, dict):
-            raise AmazonCreatorsProtocolError("getItems response missing itemsResult object")
-        items = result.get("items", [])
-        if not isinstance(items, list):
-            raise AmazonCreatorsProtocolError("itemsResult.items must be an array")
-        return [_parse_catalog_item(item, spec) for item in items]
+        return _items_from_result(data, "itemsResult", spec)
 
     def _catalog_request(
         self,
@@ -211,9 +196,8 @@ class AmazonCreatorsClient:
         marketplace: AmazonMarketplace,
         payload: Mapping[str, object],
     ) -> dict[str, object]:
-        token = self._access_token()
         try:
-            return self._post_catalog(operation, marketplace, payload, token)
+            return self._post_catalog(operation, marketplace, payload, self._access_token())
         except AmazonCreatorsError as exc:
             if exc.status != 401:
                 raise
@@ -323,6 +307,20 @@ def marketplace_spec(code: str) -> AmazonMarketplace:
         ) from exc
 
 
+def _items_from_result(
+    data: Mapping[str, object],
+    result_key: str,
+    marketplace: AmazonMarketplace,
+) -> list[CatalogItem]:
+    result = data.get(result_key)
+    if not isinstance(result, dict):
+        raise AmazonCreatorsProtocolError(f"response missing {result_key} object")
+    items = result.get("items", [])
+    if not isinstance(items, list):
+        raise AmazonCreatorsProtocolError(f"{result_key}.items must be an array")
+    return [_parse_catalog_item(item, marketplace) for item in items]
+
+
 def _parse_catalog_item(raw: object, marketplace: AmazonMarketplace) -> CatalogItem:
     if not isinstance(raw, dict):
         raise AmazonCreatorsProtocolError("catalog item must be an object")
@@ -333,44 +331,15 @@ def _parse_catalog_item(raw: object, marketplace: AmazonMarketplace) -> CatalogI
     if not isinstance(title, str) or not title.strip():
         raise AmazonCreatorsProtocolError(f"catalog item {asin} missing title")
 
-    amount: float | None = None
-    currency: str | None = None
-    listings = _nested(raw, "offersV2", "listings")
-    if isinstance(listings, list):
-        for listing in listings:
-            money = _nested(listing, "price", "money")
-            if not isinstance(money, dict):
-                continue
-            candidate_amount = money.get("amount")
-            candidate_currency = money.get("currency")
-            if isinstance(candidate_amount, (int, float)) and isinstance(candidate_currency, str):
-                amount = float(candidate_amount)
-                currency = candidate_currency.upper()
-                break
+    amount, currency = _extract_price(raw)
     if currency is not None and currency != marketplace.currency:
         raise AmazonCreatorsProtocolError(
             f"catalog item {asin} returned {currency}, expected {marketplace.currency} "
             f"for marketplace {marketplace.code}"
         )
 
-    category = None
-    browse_nodes = _nested(raw, "browseNodeInfo", "browseNodes")
-    if isinstance(browse_nodes, list) and browse_nodes:
-        first = browse_nodes[0]
-        if isinstance(first, dict):
-            for key in ("contextFreeName", "displayName"):
-                value = first.get(key)
-                if isinstance(value, str) and value.strip():
-                    category = value.strip()
-                    break
-
     brand = _nested(raw, "itemInfo", "byLineInfo", "brand", "displayValue")
-    if not isinstance(brand, str):
-        brand = None
     detail_url = raw.get("detailPageURL")
-    if not isinstance(detail_url, str):
-        detail_url = None
-
     return CatalogItem(
         provider="amazon-creators-api",
         product_id=asin,
@@ -378,10 +347,39 @@ def _parse_catalog_item(raw: object, marketplace: AmazonMarketplace) -> CatalogI
         marketplace=marketplace.code,
         price=amount,
         currency=currency,
-        detail_url=detail_url,
-        category=category,
-        brand=brand,
+        detail_url=detail_url if isinstance(detail_url, str) else None,
+        category=_extract_category(raw),
+        brand=brand if isinstance(brand, str) else None,
     )
+
+
+def _extract_price(raw: Mapping[str, object]) -> tuple[float | None, str | None]:
+    listings = _nested(raw, "offersV2", "listings")
+    if not isinstance(listings, list):
+        return None, None
+    for listing in listings:
+        money = _nested(listing, "price", "money")
+        if not isinstance(money, dict):
+            continue
+        amount = money.get("amount")
+        currency = money.get("currency")
+        if isinstance(amount, (int, float)) and isinstance(currency, str):
+            return float(amount), currency.upper()
+    return None, None
+
+
+def _extract_category(raw: Mapping[str, object]) -> str | None:
+    browse_nodes = _nested(raw, "browseNodeInfo", "browseNodes")
+    if not isinstance(browse_nodes, list) or not browse_nodes:
+        return None
+    first = browse_nodes[0]
+    if not isinstance(first, dict):
+        return None
+    for key in ("contextFreeName", "displayName"):
+        value = first.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _nested(value: object, *path: str) -> object:
@@ -394,12 +392,12 @@ def _nested(value: object, *path: str) -> object:
 
 
 def _decode_amazon_error(exc: HttpRequestError) -> AmazonCreatorsError:
-    code = None
-    message = None
     try:
         data = json.loads(exc.body)
     except (json.JSONDecodeError, UnicodeDecodeError):
         data = None
+    code = None
+    message = None
     if isinstance(data, dict):
         code, message = _extract_error_fields(data)
     return AmazonCreatorsError(exc.status, code, message)
@@ -409,12 +407,12 @@ def _extract_error_fields(data: Mapping[str, object]) -> tuple[str | None, str |
     errors = data.get("errors")
     if isinstance(errors, list) and errors and isinstance(errors[0], dict):
         first = errors[0]
-        return _as_optional_str(first.get("code") or first.get("Code")), _as_optional_str(
-            first.get("message") or first.get("Message")
-        )
-    return _as_optional_str(data.get("code") or data.get("Code")), _as_optional_str(
-        data.get("message") or data.get("Message")
-    )
+        code = first.get("code") or first.get("Code")
+        message = first.get("message") or first.get("Message")
+        return _as_optional_str(code), _as_optional_str(message)
+    code = data.get("code") or data.get("Code")
+    message = data.get("message") or data.get("Message")
+    return _as_optional_str(code), _as_optional_str(message)
 
 
 def _as_optional_str(value: object) -> str | None:
