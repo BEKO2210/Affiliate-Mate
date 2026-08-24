@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 
 def _as_float(data: Mapping[str, str], key: str, default: float) -> float:
@@ -73,7 +73,7 @@ class ProductCandidate:
         )
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, str]) -> "ProductCandidate":
+    def from_mapping(cls, data: Mapping[str, str]) -> ProductCandidate:
         """Build a candidate from a CSV-like mapping."""
 
         return cls(
