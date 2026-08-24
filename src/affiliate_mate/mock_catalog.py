@@ -1,7 +1,6 @@
 """Credential-free catalog provider for demos, tests, and contributor workflows."""
 
-from .catalog import CatalogItem
-
+from affiliate_mate.catalog import CatalogItem
 
 _FIXTURES = (
     CatalogItem(
