@@ -1,0 +1,16 @@
+[
+  {
+    "baseline_version": "baseline-v1",
+    "candidate_version": "candidate-v2-fold-1",
+    "marketplace": "DE",
+    "train_cutoff": "2026-03-01T00:00:00Z",
+    "evaluation_end": "2026-04-01T00:00:00Z"
+  },
+  {
+    "baseline_version": "baseline-v1",
+    "candidate_version": "candidate-v2-fold-2",
+    "marketplace": "DE",
+    "train_cutoff": "2026-04-01T00:00:00Z",
+    "evaluation_end": "2026-05-01T00:00:00Z"
+  }
+]
