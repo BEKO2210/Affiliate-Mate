@@ -1,0 +1,17 @@
+product_id,marketplace,observed_at,value
+demo-gps-1,DE,2026-05-01T00:00:00Z,55
+demo-gps-1,DE,2026-06-01T00:00:00Z,58
+demo-gps-1,DE,2026-07-01T00:00:00Z,64
+demo-gps-1,DE,2026-08-01T00:00:00Z,70
+demo-dashcam-1,DE,2026-05-01T00:00:00Z,74
+demo-dashcam-1,DE,2026-06-01T00:00:00Z,79
+demo-dashcam-1,DE,2026-07-01T00:00:00Z,88
+demo-dashcam-1,DE,2026-08-01T00:00:00Z,95
+demo-projector-1,DE,2026-05-01T00:00:00Z,92
+demo-projector-1,DE,2026-06-01T00:00:00Z,84
+demo-projector-1,DE,2026-07-01T00:00:00Z,68
+demo-projector-1,DE,2026-08-01T00:00:00Z,61
+demo-headphones-1,DE,2026-05-01T00:00:00Z,63
+demo-headphones-1,DE,2026-06-01T00:00:00Z,64
+demo-headphones-1,DE,2026-07-01T00:00:00Z,65
+demo-headphones-1,DE,2026-08-01T00:00:00Z,66
