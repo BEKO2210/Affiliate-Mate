@@ -1,0 +1,17 @@
+{
+  "name": "Affiliate-Mate",
+  "short_name": "Affiliate-Mate",
+  "description": "Evidence-first affiliate research, production planning, and leakage-resistant performance learning.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#080b10",
+  "theme_color": "#080b10",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
