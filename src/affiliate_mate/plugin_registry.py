@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import metadata
-from typing import Iterable
 
 PLUGIN_ENTRYPOINT_GROUP = "affiliate_mate.plugins"
 PLUGIN_REGISTRY_SCHEMA_VERSION = "affiliate-mate.plugins.v1"
