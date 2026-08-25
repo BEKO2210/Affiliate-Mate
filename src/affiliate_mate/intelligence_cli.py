@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .budgets import SourceCallBudget
 from .clustering import cluster_candidates
 from .collection import collect_evidence
 from .evidence import SQLiteEvidenceStore
@@ -24,9 +25,15 @@ def _build_providers(args: argparse.Namespace) -> list[EvidenceProvider]:
     if args.replay is not None:
         providers.append(ReplayEvidenceProvider.from_json(args.replay))
     if args.youtube:
+        budget = SourceCallBudget(
+            {
+                "youtube.search.list": args.youtube_max_collections,
+                "youtube.videos.list": args.youtube_max_collections,
+            }
+        )
         providers.append(
             YouTubeCompetitionProvider(
-                YouTubeDataAPIClient.from_env(),
+                YouTubeDataAPIClient.from_env(budget=budget),
                 max_results=args.youtube_max_results,
                 relevance_language=args.youtube_language,
             )
@@ -56,11 +63,12 @@ def _collect_command(args: argparse.Namespace) -> int:
     print(f"{'PRODUCT':<28} {'COLLECTED':>9} {'STORED':>7}  FAILED")
     print("-" * 72)
     for report in reports:
-        failed = ",".join(report["failed_providers"]) or "-"
+        failed_providers = report["failed_providers"]
+        failed = ",".join(failed_providers) if isinstance(failed_providers, list) else "-"
         print(
             f"{str(report['product_id'])[:28]:<28} "
-            f"{int(report['observations_collected']):>9} "
-            f"{int(report['observations_stored']):>7}  {failed}"
+            f"{str(report['observations_collected']):>9} "
+            f"{str(report['observations_stored']):>7}  {failed or '-'}"
         )
     return 0
 
@@ -100,6 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--replay", type=Path)
     collect.add_argument("--youtube", action="store_true")
     collect.add_argument("--youtube-max-results", type=int, default=25)
+    collect.add_argument(
+        "--youtube-max-collections",
+        type=int,
+        default=20,
+        help="Maximum YouTube product landscapes collected in this process.",
+    )
     collect.add_argument("--youtube-language")
     collect.add_argument("--fail-fast", action="store_true")
     collect.add_argument("--format", choices=("table", "json"), default="table")
@@ -119,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "collect":
         if not 1 <= args.youtube_max_results <= 50:
             raise SystemExit("--youtube-max-results must be between 1 and 50")
+        if args.youtube_max_collections < 0:
+            raise SystemExit("--youtube-max-collections must be >= 0")
         return _collect_command(args)
     if args.command == "cluster":
         if not 0 <= args.threshold <= 1:
