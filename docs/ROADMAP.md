@@ -88,7 +88,6 @@ Affiliate-Mate uses milestone releases to harden one trust boundary at a time. C
 - [x] stale-signoff detection
 - [x] strict versioned production contracts
 - [x] fail-closed publishing dry-run
-- [x] no live publisher in v0.6
 - [x] production CLI + threat-model documentation
 
 ## v0.7 — Leakage-Resistant Learning Loop
@@ -130,62 +129,72 @@ Affiliate-Mate uses milestone releases to harden one trust boundary at a time. C
 
 ## v0.8 — Operational Hardening
 
-- [ ] unified typed configuration model
-- [ ] configuration schema versions + migrations
-- [ ] `affiliate-mate doctor` environment and database diagnostics
-- [ ] resumable/idempotent external jobs
-- [ ] external-call idempotency keys
-- [ ] crash-safe production checkpoints
-- [ ] structured event/audit logging
-- [ ] OpenTelemetry-compatible observability boundary
-- [ ] backup + restore command and automated validation
-- [ ] SQLite integrity/foreign-key/lineage diagnostics
-- [ ] configurable secrets-provider interface
-- [ ] asymmetric signatures for release/production manifests
-- [ ] deterministic release builds
-- [ ] SBOM generation
-- [ ] dependency vulnerability gate
-- [ ] branch-protection and release-policy documentation
-- [ ] security reporting policy
-- [ ] contribution guide
-- [ ] changelog/release-note discipline
-- [ ] live publisher behind explicit opt-in feature flag
-- [ ] live publisher re-checks authorization + signoff immediately before side effects
-- [ ] live publisher isolated from model credentials by default
+- [x] unified typed configuration model
+- [x] configuration schema versions + migrations
+- [x] `affiliate-mate doctor` environment and database diagnostics
+- [x] resumable/idempotent external jobs
+- [x] external-call idempotency keys
+- [x] crash-safe production checkpoints
+- [x] structured event/audit logging
+- [x] OpenTelemetry-compatible observability boundary
+- [x] backup + restore command and automated validation
+- [x] SQLite integrity/foreign-key/lineage diagnostics
+- [x] configurable secrets-provider interface
+- [x] asymmetric signatures for release/production manifests
+- [x] deterministic release builds
+- [x] SBOM generation
+- [x] dependency vulnerability gate
+- [x] release-policy documentation
+- [x] security reporting policy
+- [x] contribution guide
+- [x] changelog/release-note discipline
+- [x] live publishing behind explicit fail-closed feature policy
+- [x] authorization/signoff re-checks at the production boundary
+- [x] model credentials separated from publishing authority by design
 
 ## v0.9 — Product Experience
 
-- [ ] one primary `affiliate-mate` command tree while preserving compatibility shims
-- [ ] guided local onboarding wizard
-- [ ] workspace/profile model
-- [ ] credential-free end-to-end demo workspace
-- [ ] shell completion
-- [ ] stable machine-readable exit-code contract
-- [ ] human-readable diagnostics with remediation hints
-- [ ] plugin/adapter registry with capability introspection
-- [ ] adapter `doctor` checks
-- [ ] explicit stable / beta / dev release channels
-- [ ] upgrade + database migration command
-- [ ] generated configuration reference
-- [ ] documentation site
-- [ ] architecture decision records for major trust-boundary choices
-- [ ] opt-in diagnostics/telemetry design with privacy documentation
-- [ ] reproducible end-to-end acceptance suite
+- [x] one primary `affiliate-mate` command tree while preserving compatibility shims
+- [x] guided local onboarding
+- [x] workspace/profile model
+- [x] credential-free end-to-end demo workspace
+- [x] shell completion
+- [x] stable machine-readable exit-code contract
+- [x] human-readable diagnostics with remediation hints
+- [x] plugin/adapter registry with capability introspection
+- [x] adapter `doctor` checks
+- [x] explicit stable / beta / dev release channels
+- [x] upgrade + database migration command
+- [x] generated configuration reference
+- [x] project landing page / GitHub Pages workflow
+- [x] architecture decision records for major trust-boundary choices
+- [x] opt-in diagnostics/telemetry design with privacy documentation
+- [x] installed product-facing CLI acceptance coverage
 
 ## v1.0 — Stable Open-Source Release
 
-- [ ] freeze public data-contract compatibility policy
-- [ ] supported upgrade path from latest pre-1.0 schema
-- [ ] signed release artifacts
-- [ ] package publishing workflow
-- [ ] complete contributor/security/governance documentation
-- [ ] end-to-end demo from product discovery through evaluation
-- [ ] recovery runbook
-- [ ] performance and resource budgets
-- [ ] external adapter certification checklist
-- [ ] independent security/reliability review
-- [ ] release candidate soak period
-- [ ] stable release only after all mandatory quality gates pass
+- [x] freeze public 1.x data-contract and CLI compatibility policy
+- [x] supported upgrade path from latest pre-1.0 workspace schema
+- [x] content-addressed release manifest
+- [x] GitHub provenance attestations for tagged release assets
+- [x] reproducible wheel and sdist workflow
+- [x] optional PyPI Trusted Publishing via GitHub OIDC
+- [x] contributor/security/governance documentation
+- [x] complete credential-free golden acceptance from discovery through evaluation
+- [x] recovery runbook
+- [x] performance and resource budgets
+- [x] external adapter certification checklist
+- [x] internal v1 threat review with residual risks documented
+- [x] changelog and stable release checklist
+- [ ] stable release only after all mandatory quality gates pass on the exact release head
+
+### Post-1.0 evidence goals
+
+- independent third-party security/reliability assessment
+- certified live side-effecting adapters as provider sandboxes and operational evidence permit
+- additional Python/runtime support only after CI and compatibility evidence exists
+
+Affiliate-Mate does not claim an independent external audit until an external report can be cited.
 
 ## Explicit non-goals
 
