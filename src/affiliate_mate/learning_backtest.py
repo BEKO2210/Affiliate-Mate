@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Iterable
 
 from .decision import evaluate_candidate
 from .learning_capture import evaluation_policy_from_version
@@ -25,7 +25,7 @@ class BacktestPolicy:
     min_candidate_selections: int = 3
     max_relative_ev_regression: float = 0.05
     require_zero_baseline_replay_mismatches: bool = True
-    performance_policy: PerformancePolicy = PerformancePolicy()
+    performance_policy: PerformancePolicy = field(default_factory=PerformancePolicy)
 
     def __post_init__(self) -> None:
         if self.min_evaluation_forecasts < 1:
