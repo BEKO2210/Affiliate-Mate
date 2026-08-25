@@ -85,9 +85,16 @@ class SignatureEnvelope:
         missing = expected - set(payload)
         if unknown or missing:
             raise ValueError(
-                f"signature envelope keys mismatch; missing={sorted(missing)}, unknown={sorted(unknown)}"
+                f"signature envelope keys mismatch; missing={sorted(missing)}, "
+                f"unknown={sorted(unknown)}"
             )
-        return cls(**{key: str(payload[key]) for key in expected})
+        return cls(
+            sha256=str(payload["sha256"]),
+            signature_base64=str(payload["signature_base64"]),
+            public_key_fingerprint=str(payload["public_key_fingerprint"]),
+            algorithm=str(payload["algorithm"]),
+            schema_version=str(payload["schema_version"]),
+        )
 
 
 def _public_fingerprint(public_key: object) -> str:
@@ -139,6 +146,7 @@ def generate_ed25519_keypair(
         os.fsync(private_fd)
     finally:
         os.close(private_fd)
+    os.chmod(private_path, 0o600)
     public_path.write_bytes(public_bytes)
     return _public_fingerprint(public_key)
 
