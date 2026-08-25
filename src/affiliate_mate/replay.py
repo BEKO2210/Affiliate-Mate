@@ -12,8 +12,8 @@ def _parse_time(value: object, field_name: str) -> datetime | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError(f"{field_name} must be an ISO-8601 string")
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        raise TypeError(f"{field_name} must be an ISO-8601 string")
+    parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError(f"{field_name} must include a timezone")
     return parsed.astimezone(UTC)
@@ -32,11 +32,11 @@ class ReplayEvidenceProvider:
     def from_json(cls, path: str | Path, *, name: str = "replay") -> "ReplayEvidenceProvider":
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
         if not isinstance(raw, dict) or not isinstance(raw.get("observations"), list):
-            raise ValueError("replay fixture must contain an observations array")
+            raise TypeError("replay fixture must contain an observations array")
         observations: list[EvidenceObservation] = []
         for index, item in enumerate(raw["observations"]):
             if not isinstance(item, dict):
-                raise ValueError(f"replay observation {index} must be an object")
+                raise TypeError(f"replay observation {index} must be an object")
             try:
                 observed_at = _parse_time(item.get("observed_at"), "observed_at")
                 if observed_at is None:
