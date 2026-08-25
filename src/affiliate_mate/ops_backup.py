@@ -64,13 +64,18 @@ def sha256_file(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def sqlite_readonly_uri(path: str | Path) -> str:
+    """Return a correctly escaped absolute SQLite URI for a read-only connection."""
+
+    return f"{Path(path).expanduser().resolve().as_uri()}?mode=ro"
+
+
 def inspect_sqlite(path: str | Path) -> DatabaseHealth:
     target = Path(path).expanduser()
     if not target.is_file():
         raise FileNotFoundError(f"SQLite database does not exist: {target}")
-    uri = f"file:{target.resolve().as_posix()}?mode=ro"
     try:
-        connection = sqlite3.connect(uri, uri=True)
+        connection = sqlite3.connect(sqlite_readonly_uri(target), uri=True)
     except sqlite3.Error as exc:
         raise RuntimeError(f"cannot open SQLite database: {target}") from exc
     try:
