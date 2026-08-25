@@ -12,8 +12,8 @@ from affiliate_mate.learning_models import (
 )
 from affiliate_mate.learning_reports import (
     CalibrationPolicy,
-    PerformanceReport,
     PerformancePolicy,
+    PerformanceReport,
     build_calibration_report,
     build_performance_report,
     wilson_interval,
@@ -67,9 +67,11 @@ def event(
     source_event_id: str,
     count: int = 0,
     amount_minor: int = 0,
-    observed_at: datetime = dt(2),
-    ingested_at: datetime = dt(2),
+    observed_at: datetime | None = None,
+    ingested_at: datetime | None = None,
 ) -> OutcomeEvent:
+    observed = dt(2) if observed_at is None else observed_at
+    ingested = observed if ingested_at is None else ingested_at
     return OutcomeEvent(
         source="test",
         source_event_id=source_event_id,
@@ -78,8 +80,8 @@ def event(
         marketplace=item.marketplace,
         content_id=item.content_id,
         effective_at=dt(2),
-        observed_at=observed_at,
-        ingested_at=ingested_at,
+        observed_at=observed,
+        ingested_at=ingested,
         window_start=dt(1),
         window_end=dt(2),
         count=count,
