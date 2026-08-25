@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from .research_models import ApprovalEvent, ApprovalState, ClaimRisk, ClaimState, EvidenceStance
+from .research_snapshot import ApprovalSnapshotRegistry, research_snapshot_digest
 from .research_store import ResearchWorkspaceStore
 
 
@@ -70,6 +71,47 @@ class ResearchCompletenessReport:
             "failures": list(self.failures),
             "active_claim_ids": list(self.active_claim_ids),
             "rejected_claim_ids": list(self.rejected_claim_ids),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovalGuardReport:
+    """Effective production-readiness state, including approval snapshot freshness."""
+
+    product_id: str
+    passed: bool
+    raw_state: ApprovalState
+    completeness: ResearchCompletenessReport
+    approved_event_id: int | None
+    snapshot_present: bool
+    snapshot_current: bool
+    approved_research_digest: str | None
+    current_research_digest: str
+
+    @property
+    def failures(self) -> tuple[str, ...]:
+        failures: list[str] = []
+        if self.raw_state is not ApprovalState.APPROVED:
+            failures.append(f"approval state is {self.raw_state.value}, not approved")
+        failures.extend(self.completeness.failures)
+        if self.raw_state is ApprovalState.APPROVED and not self.snapshot_present:
+            failures.append("approved event has no bound research snapshot")
+        elif self.raw_state is ApprovalState.APPROVED and not self.snapshot_current:
+            failures.append("research changed after approval; review must be reopened")
+        return tuple(failures)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "product_id": self.product_id,
+            "passed": self.passed,
+            "raw_state": self.raw_state.value,
+            "approved_event_id": self.approved_event_id,
+            "snapshot_present": self.snapshot_present,
+            "snapshot_current": self.snapshot_current,
+            "approved_research_digest": self.approved_research_digest,
+            "current_research_digest": self.current_research_digest,
+            "completeness": self.completeness.to_dict(),
+            "failures": list(self.failures),
         }
 
 
@@ -227,6 +269,46 @@ def evaluate_research_completeness(
     )
 
 
+def evaluate_approval_guard(
+    store: ResearchWorkspaceStore,
+    product_id: str,
+    *,
+    policy: ResearchPolicy | None = None,
+) -> ApprovalGuardReport:
+    """Return the effective approval state future production adapters must consume."""
+
+    completeness = evaluate_research_completeness(store, product_id, policy=policy)
+    raw_state = store.current_approval_state(product_id)
+    current_digest = research_snapshot_digest(store, product_id)
+    events = store.list_approval_events(product_id)
+    latest_event = events[-1] if events else None
+    registry = ApprovalSnapshotRegistry(store)
+    snapshot = (
+        None
+        if latest_event is None or latest_event.event_id is None
+        else registry.for_event(latest_event.event_id)
+    )
+    snapshot_present = snapshot is not None
+    snapshot_current = snapshot is not None and snapshot.research_digest == current_digest
+    passed = (
+        raw_state is ApprovalState.APPROVED
+        and completeness.passed
+        and snapshot_present
+        and snapshot_current
+    )
+    return ApprovalGuardReport(
+        product_id=product_id,
+        passed=passed,
+        raw_state=raw_state,
+        completeness=completeness,
+        approved_event_id=None if latest_event is None else latest_event.event_id,
+        snapshot_present=snapshot_present,
+        snapshot_current=snapshot_current,
+        approved_research_digest=None if snapshot is None else snapshot.research_digest,
+        current_research_digest=current_digest,
+    )
+
+
 def transition_product_approval(
     store: ResearchWorkspaceStore,
     product_id: str,
@@ -237,16 +319,35 @@ def transition_product_approval(
     expected_state: ApprovalState | None = None,
     policy: ResearchPolicy | None = None,
 ) -> ApprovalEvent:
-    """Transition approval state, refusing APPROVED until research gates pass."""
+    """Transition approval state, binding APPROVED to one exact research revision."""
 
+    approved_digest: str | None = None
     if state is ApprovalState.APPROVED:
         report = evaluate_research_completeness(store, product_id, policy=policy)
         if not report.passed:
             raise ResearchApprovalBlocked(report)
-    return store.transition_approval(
+        approved_digest = research_snapshot_digest(store, product_id)
+
+    event = store.transition_approval(
         product_id,
         state,
         actor=actor,
         reason=reason,
         expected_state=expected_state,
     )
+    if state is ApprovalState.APPROVED:
+        if event.event_id is None or approved_digest is None:
+            raise RuntimeError("approved event did not receive a persistent event ID")
+        ApprovalSnapshotRegistry(store).record(
+            approval_event_id=event.event_id,
+            product_id=product_id,
+            research_digest=approved_digest,
+            created_at=event.created_at,
+        )
+        guard = evaluate_approval_guard(store, product_id, policy=policy)
+        if not guard.passed:
+            raise RuntimeError(
+                "approval was recorded but the effective approval guard is not satisfied; "
+                "the package remains unusable for production"
+            )
+    return event
