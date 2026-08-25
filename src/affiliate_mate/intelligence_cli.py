@@ -67,8 +67,8 @@ def _collect_command(args: argparse.Namespace) -> int:
         failed = ",".join(failed_providers) if isinstance(failed_providers, list) else "-"
         print(
             f"{str(report['product_id'])[:28]:<28} "
-            f"{str(report['observations_collected']):>9} "
-            f"{str(report['observations_stored']):>7}  {failed or '-'}"
+            f"{report['observations_collected']!s:>9} "
+            f"{report['observations_stored']!s:>7}  {failed or '-'}"
         )
     return 0
 
