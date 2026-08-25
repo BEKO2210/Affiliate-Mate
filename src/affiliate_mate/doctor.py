@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from .ops_backup import inspect_sqlite
+from .ops_backup import inspect_sqlite, sqlite_readonly_uri
 from .ops_config import AppConfig
 
 DOCTOR_SCHEMA_VERSION = "affiliate-mate.doctor-report.v1"
@@ -72,7 +72,13 @@ def _database_schema_checks(path: Path) -> list[DoctorCheck]:
     checks: list[DoctorCheck] = []
     health = inspect_sqlite(path)
     if health.integrity_ok:
-        checks.append(DoctorCheck("sqlite.integrity", CheckStatus.PASS, "SQLite integrity_check passed."))
+        checks.append(
+            DoctorCheck(
+                "sqlite.integrity",
+                CheckStatus.PASS,
+                "SQLite integrity_check passed.",
+            )
+        )
     else:
         checks.append(
             DoctorCheck(
@@ -84,7 +90,11 @@ def _database_schema_checks(path: Path) -> list[DoctorCheck]:
         )
     if health.foreign_key_violations == 0:
         checks.append(
-            DoctorCheck("sqlite.foreign_keys", CheckStatus.PASS, "No foreign-key violations found.")
+            DoctorCheck(
+                "sqlite.foreign_keys",
+                CheckStatus.PASS,
+                "No foreign-key violations found.",
+            )
         )
     else:
         checks.append(
@@ -96,7 +106,7 @@ def _database_schema_checks(path: Path) -> list[DoctorCheck]:
             )
         )
 
-    connection = sqlite3.connect(f"file:{path.resolve().as_posix()}?mode=ro", uri=True)
+    connection = sqlite3.connect(sqlite_readonly_uri(path), uri=True)
     try:
         meta_tables = {
             "schema_meta": "evidence",
@@ -191,7 +201,11 @@ def run_doctor(
             )
         else:
             checks.append(
-                DoctorCheck("database.path", CheckStatus.PASS, f"Database exists: {db_path}")
+                DoctorCheck(
+                    "database.path",
+                    CheckStatus.PASS,
+                    f"Database exists: {db_path}",
+                )
             )
             try:
                 checks.extend(_database_schema_checks(db_path))
@@ -201,7 +215,10 @@ def run_doctor(
                         "database.open",
                         CheckStatus.FAIL,
                         f"Database diagnostics failed: {type(exc).__name__}: {exc}",
-                        "Verify the path and restore from a validated backup if corruption is suspected.",
+                        (
+                            "Verify the path and restore from a validated backup if corruption "
+                            "is suspected."
+                        ),
                     )
                 )
     else:
@@ -226,7 +243,10 @@ def run_doctor(
                 "feature.live_publishing",
                 CheckStatus.WARN,
                 "Live publishing feature flag is enabled.",
-                "Keep it disabled unless a reviewed side-effecting publisher is intentionally in use.",
+                (
+                    "Keep it disabled unless a reviewed side-effecting publisher is "
+                    "intentionally in use."
+                ),
             )
         )
     else:
@@ -249,7 +269,10 @@ def run_doctor(
         DoctorCheck(
             "secrets.optional_providers",
             CheckStatus.PASS,
-            f"{present}/{len(secret_names)} optional provider secret variables are present; values hidden.",
+            (
+                f"{present}/{len(secret_names)} optional provider secret variables are present; "
+                "values hidden."
+            ),
         )
     )
 
@@ -265,12 +288,13 @@ def run_doctor(
     else:
         telemetry_path = Path(config.observability.jsonl_path).expanduser()
         parent = telemetry_path.parent
+        writable = parent.exists() and os.access(parent, os.W_OK)
         checks.append(
             DoctorCheck(
                 "observability.jsonl",
-                CheckStatus.PASS if parent.exists() and os.access(parent, os.W_OK) else CheckStatus.WARN,
+                CheckStatus.PASS if writable else CheckStatus.WARN,
                 f"Telemetry target: {telemetry_path}",
-                None if parent.exists() else "Create the telemetry parent directory.",
+                None if writable else "Create the telemetry parent directory or fix permissions.",
             )
         )
 
