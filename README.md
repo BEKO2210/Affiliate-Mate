@@ -1,119 +1,81 @@
 # Affiliate-Mate
 
-**Open-source, evidence-first affiliate research, production planning, and leakage-resistant performance learning.**
+**Evidence-first affiliate research, human-approved production, and leakage-resistant learning.**
 
-Affiliate-Mate is built around a simple trust rule:
+[![CI](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/ci.yml/badge.svg)](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/ci.yml)
+[![Security](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/security.yml/badge.svg)](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/security.yml)
+[![Reproducible Build](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/reproducible-build.yml/badge.svg)](https://github.com/BEKO2210/Affiliate-Mate/actions/workflows/reproducible-build.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Automation may collect, rank, draft, render, and learn. It may not silently turn weak evidence into a product claim, reuse stale approval, or learn from future data.**
+Affiliate-Mate 1.0 is an open-source system for turning product and market signals into auditable affiliate decisions without making a model, marketplace, renderer, publisher, or analytics feed the trust root.
 
-The project separates discovery, evidence, decisions, research, approval, production, and realized outcomes so no marketplace, model, renderer, publisher, or analytics feed becomes the system's trust root.
+> **Automation may collect, rank, draft, render, and evaluate. It may not fabricate evidence, reuse stale approval, publish by implication, or learn from information that was not observable at the time.**
 
-## Current status — v0.7 Learning Loop
+Project site: **https://beko2210.github.io/Affiliate-Mate/**
 
-v0.7 closes the loop between **what Affiliate-Mate predicted** and **what actually happened** without rewriting history:
+## Why Affiliate-Mate exists
 
-- immutable point-in-time forecast snapshots
-- provider-neutral realized-outcome events
-- separate `effective_at`, `observed_at`, and `ingested_at` timestamps
-- YouTube/video analytics CSV import
-- affiliate click/order/commission/refund/reversal import
-- minor-unit money accounting
-- explicit product + content + production-package lineage
-- delayed-attribution handling
-- mature-window performance reports
-- CTR, conversion-rate, and value-per-1,000-view calibration
-- Wilson 95% intervals for rate metrics
-- minimum-sample safeguards
-- marketplace/category/price-band cohort reports
-- calibration drift detection
-- immutable scoring-policy registry
-- baseline-replay integrity checks
-- chronological holdout backtests
-- walk-forward policy evaluation
-- hard future-data / target-leakage guards
-- append-only human policy decisions
-- sixth CLI: `affiliate-mate-learning`
+Most affiliate automation collapses several very different questions into one pipeline: *is there demand?*, *is a claim supported?*, *should content be produced?*, *is it safe to publish?*, and *did the decision work?*
 
-**v0.7 does not auto-promote a scoring policy.** A backtest can produce evidence that a candidate is eligible for review; changing production policy remains an explicit human decision.
-
-Previous trust boundaries remain intact:
-
-- **v0.1** — transparent opportunity score
-- **v0.2** — evidence store, hard gates, sensitivity, automation JSON
-- **v0.3** — catalog adapters, Amazon Creators API, bounded HTTP, commission schedules
-- **v0.4** — YouTube/keyword/trend market intelligence, freshness, replay, budgets
-- **v0.5** — claim/evidence ledger, research completeness, approval snapshots
-- **v0.6** — grounded production contracts, content-addressed assets, production signoff, publish dry-run
-
-## Architecture
+Affiliate-Mate keeps those boundaries explicit:
 
 ```text
-Catalogs + market sources
-          |
-          v
- Evidence Engine
- provenance + time + expiry
-          |
-          v
- Opportunity Engine
- hard gates + score + sensitivity
-          |
-          v
-      SHORTLIST
-          |
-          v
- Research Workspace
- sources + claims + citations + notes
-          |
-          v
- Research completeness
-          |
-          v
-    HUMAN APPROVAL
-          |
-          v
- Research snapshot SHA-256
-          |
-          v
- ProductionAuthorization
-          |
-          v
- Grounded production package
- script + metadata + assets + lineage
-          |
-          v
- HUMAN PRODUCTION SIGNOFF
-          |
-          v
- Publish dry-run / future publisher
-          |
-          v
- Realized outcomes
- views + clicks + orders + revenue
- refunds + reversals + attribution time
-          |
-          v
- Learning Store
- immutable forecasts + outcome history
-          |
-          v
- Calibration / drift / backtest
-          |
-          v
- HUMAN POLICY DECISION
-          |
-          +--------------------------+
-                                     |
-                                     v
-                         future scoring policy
+Catalog + market signals
+          ↓
+Evidence + provenance
+          ↓
+Opportunity gates + sensitivity
+          ↓
+Research sources + claims + citations
+          ↓
+HUMAN RESEARCH APPROVAL
+          ↓
+revision-bound SHA-256 authorization
+          ↓
+Grounded script + production package
+          ↓
+HUMAN PRODUCTION SIGNOFF
+          ↓
+artifact integrity + publish dry-run
+          ↓
+Immutable forecast
+          ↓
+Real outcomes with three clocks
+          ↓
+Calibration / drift / holdout / walk-forward
+          ↓
+HUMAN POLICY DECISION
 ```
 
-Two invariants matter most:
+A valid score is not publication permission. A valid backtest is not policy-promotion permission.
 
-1. **History is immutable.** Future outcomes never change what an earlier forecast supposedly knew.
-2. **Learning is advisory until reviewed.** Evaluation evidence cannot silently mutate the active policy.
+## 1.0 trust guarantees
+
+Affiliate-Mate 1.x freezes these safety invariants as part of the compatibility surface:
+
+- missing required evidence fails closed;
+- research approval is bound to an exact research snapshot;
+- changed research invalidates stale production authority;
+- factual production segments reference approved claim IDs;
+- production signoff is bound to an exact package digest;
+- changed or missing artifacts block publish readiness;
+- built-in publishing remains dry-run/non-side-effecting by default;
+- outcome evaluation uses `effective_at`, `observed_at`, and `ingested_at` separately;
+- historical evaluation cannot consume outcomes that were not observable by its evaluation time;
+- policy promotion remains an explicit human decision;
+- unknown incompatible machine-contract versions fail closed.
+
+The machine-readable 1.x promise is available with:
+
+```bash
+affiliate-mate-release contract
+```
+
+See [`docs/COMPATIBILITY_POLICY.md`](docs/COMPATIBILITY_POLICY.md).
 
 ## Quick start
+
+Requirements: **Python 3.11 or 3.12**.
 
 ```bash
 git clone https://github.com/BEKO2210/Affiliate-Mate.git
@@ -123,277 +85,230 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
 ```
 
-Affiliate-Mate installs six focused CLIs:
+Create a completely credential-free demo workspace:
+
+```bash
+affiliate-mate demo init ./demo
+cd demo
+affiliate-mate status
+affiliate-mate doctor
+affiliate-mate analyze data/products.csv --include-rejected
+```
+
+No cloud account, API key, live affiliate account, or publishing credential is required for the demo.
+
+## Primary CLI
+
+`affiliate-mate` is the product-facing command tree:
 
 ```text
-affiliate-mate             evidence + opportunity decision engine
-affiliate-mate-catalog     catalog discovery + commission tools
-affiliate-mate-intel       market intelligence + replay + clustering
-affiliate-mate-research    claims + citations + human approval
-affiliate-mate-production  grounded production planning + publish dry-run
-affiliate-mate-learning    forecasts + outcomes + calibration + backtests
+affiliate-mate
+├── init
+├── workspace
+├── demo
+├── status
+├── doctor
+├── plugins
+├── upgrade
+├── config
+├── release
+├── completion
+├── contract
+├── score / analyze / evidence
+├── catalog
+├── intel
+├── research
+├── production
+├── learning
+└── ops
 ```
 
-## v0.7 learning workflow
-
-### 1. Initialize the learning schema
-
-The learning tables use their own schema namespace and can coexist with the evidence and research tables in one SQLite database.
-
-```bash
-affiliate-mate-learning init affiliate-mate.sqlite3
-```
-
-### 2. Register the scoring policy that actually existed
-
-A forecast is invalid if it references a policy that had not yet been registered at prediction time.
-
-```bash
-affiliate-mate-learning policy-register affiliate-mate.sqlite3 baseline-v1 \
-  --created-at 2026-01-01T00:00:00+00:00 \
-  --notes "Production baseline"
-```
-
-Policy records are immutable. Replaying an identical record is idempotent; trying to reuse the same version name with different contents is a conflict.
-
-### 3. Freeze a forecast before outcomes exist
-
-```bash
-affiliate-mate-learning forecast \
-  affiliate-mate.sqlite3 \
-  sample_data/products.csv \
-  demo-headphones-1 \
-  --policy-version baseline-v1 \
-  --content-id youtube:demo123 \
-  --category audio \
-  --predicted-at 2026-01-02T00:00:00+00:00 \
-  --horizon-days 30 \
-  --evidence-db affiliate-mate.sqlite3 \
-  --output forecast.json
-```
-
-A forecast snapshot freezes:
+Existing domain executables remain supported compatibility shims in 1.x:
 
 ```text
-candidate values
-explicitly available fields
-policy version + policy digest
-analysis digest
-candidate digest
-decision + score
-predicted CTR
-predicted conversion rate
-predicted EV/1K
-commission per sale
-prediction time + outcome horizon
-product/content/package lineage
+affiliate-mate-catalog
+affiliate-mate-intel
+affiliate-mate-research
+affiliate-mate-production
+affiliate-mate-learning
+affiliate-mate-ops
 ```
 
-If point-in-time evidence resolution contains an observation from after `predicted_at`, forecast capture fails.
+Release verification is exposed separately as `affiliate-mate-release`.
 
-### 4. Import realized outcomes
+## System layers
 
-Video analytics:
+### Evidence and decisions
 
-```bash
-affiliate-mate-learning import-video \
-  affiliate-mate.sqlite3 \
-  sample_data/video_analytics.example.csv \
-  --ingested-at 2026-02-10T12:00:00+00:00
-```
+The evidence engine stores provenance, observation time, expiry, confidence, and signal identity in SQLite. Opportunity evaluation uses explicit gates, documented score weights, and CTR/conversion sensitivity rather than a hidden recommendation score.
 
-Affiliate outcomes:
+### Catalog and market intelligence
 
-```bash
-affiliate-mate-learning import-affiliate \
-  affiliate-mate.sqlite3 \
-  sample_data/affiliate_outcomes.example.csv \
-  --ingested-at 2026-02-12T12:00:00+00:00
-```
+Provider boundaries include Amazon Creators API catalog access, marketplace-aware currencies, explicit commission schedules, YouTube/keyword/trend evidence, freshness policies, bounded call budgets, deterministic replay, and near-duplicate clustering.
 
-The import model intentionally keeps three different clocks:
+Commission percentages are not treated as permanent hard-coded truth.
+
+### Research workspace
+
+Research is a claim/evidence ledger rather than generated prose pretending to be evidence. It supports source provenance, support/contradiction/context links, claim risk, citation-ready notes, deterministic review clustering, completeness gates, append-only state history, and revision-bound human approval.
+
+### Production
+
+Production consumes only current approved research. Factual script segments carry claim IDs. Packages bind script, metadata, thumbnail guidance, adapter plans, and artifact hashes. A second human signoff binds the exact package digest before the publish dry-run can report readiness.
+
+The built-in publisher path is intentionally non-side-effecting.
+
+### Learning
+
+Forecasts are frozen before outcomes. Realized events retain three clocks:
 
 ```text
-effective_at  when the outcome economically/behaviorally happened
+effective_at  when the outcome happened
 observed_at   when the source reported it
-ingested_at   when Affiliate-Mate actually learned it
+ingested_at   when Affiliate-Mate learned it
 ```
 
-A historical evaluation at time `T` may use an event only if **both** `observed_at <= T` and `ingested_at <= T`. An affiliate conversion attributed to January but first received in February cannot leak into a January backtest.
+Learning includes mature-window performance reports, refunds/reversals, currency-safe minor-unit accounting, calibration, Wilson intervals, drift states, chronological holdouts, counterfactual-observability guards, and walk-forward evaluation.
 
-### 5. Compare forecast vs reality
+A candidate scoring policy can become *promotion eligible*; it cannot promote itself.
 
-```bash
-affiliate-mate-learning performance \
-  affiliate-mate.sqlite3 \
-  <forecast-id> \
-  --evaluated-at 2026-02-15T00:00:00+00:00 \
-  --reporting-lag-days 7
-```
+### Operations
 
-The report remains immature until the forecast horizon plus configured reporting lag has passed. It also requires explicit outcome kinds instead of silently interpreting missing rows as zero.
+Operational hardening includes typed versioned configuration, workspace-safe paths, diagnostics, SQLite integrity checks, backup/restore, resumable jobs, idempotency claims, structured secret-safe telemetry, Ed25519 signing primitives, SPDX SBOM generation, dependency auditing, and reproducible distribution builds.
 
-### 6. Calibrate cohorts
+## Golden v1 acceptance
 
-```bash
-affiliate-mate-learning calibrate \
-  affiliate-mate.sqlite3 \
-  --start 2026-01-01T00:00:00+00:00 \
-  --end 2026-06-01T00:00:00+00:00 \
-  --evaluated-at 2026-06-15T00:00:00+00:00 \
-  --min-forecasts 5 \
-  --min-views 5000 \
-  --min-clicks 100 \
-  --min-orders 10
-```
-
-Calibration is grouped by:
+The stable CI runs a credential-free end-to-end acceptance that exercises the principal trust chain as one system:
 
 ```text
-marketplace × category × price band
+demo
+ → analysis
+ → research sources + claim evidence
+ → human approval
+ → production authorization
+ → grounded script
+ → five content-addressed artifacts
+ → human package signoff
+ → non-side-effecting publish dry-run
+ → immutable forecast
+ → realized views/clicks/orders/commission
+ → mature performance report
 ```
 
-Rate metrics expose Wilson 95% intervals. Cohorts that do not meet minimum evidence are marked insufficient rather than promoted as precise findings.
-
-### 7. Backtest a challenger policy
+Run it locally:
 
 ```bash
-affiliate-mate-learning backtest \
-  affiliate-mate.sqlite3 \
-  baseline-v1 \
-  candidate-v2 \
-  DE \
-  --train-cutoff 2026-04-01T00:00:00+00:00 \
-  --evaluation-end 2026-06-01T00:00:00+00:00 \
-  --evaluated-at 2026-06-15T00:00:00+00:00
+python scripts/v1_acceptance.py --max-seconds 20
 ```
 
-The evaluation window is strictly after the training cutoff. Candidate and baseline policies must already have existed at the cutoff. Stored historical baseline decisions are replayed from frozen candidate inputs; any mismatch blocks promotion eligibility.
+The acceptance path is designed to require **zero network calls, zero credentials, and zero external side effects**.
 
-### 8. Walk forward instead of trusting one lucky split
+## Release engineering
 
-```bash
-affiliate-mate-learning walk-forward \
-  affiliate-mate.sqlite3 \
-  sample_data/walk_forward_folds.example.json \
-  --evaluated-at 2026-06-15T00:00:00+00:00
-```
-
-Each fold uses an independently versioned candidate policy. Backwards-overlapping evaluation windows are rejected. A walk-forward report passes only when every fold passes its own promotion gate.
-
-### 9. Record the human policy decision
-
-```bash
-affiliate-mate-learning policy-decision \
-  affiliate-mate.sqlite3 \
-  baseline-v1 \
-  candidate-v2 \
-  <evaluation-digest> \
-  approve \
-  --actor reviewer@example \
-  --reason "Chronological evaluation passed; change reviewed." \
-  --created-at 2026-06-16T00:00:00+00:00
-```
-
-This writes an append-only audit event. It **does not** flip an invisible `active_policy` pointer.
-
-## What v0.7 measures
-
-For a mature forecast:
+A release candidate is not accepted because it merely installs. The repository gates:
 
 ```text
-CTR              = clicks / views
-conversion rate  = orders / clicks
-net commission   = gross commission - refunds - reversals
-realized EV/1K   = 1000 × net commission / views
+CI
+  Python 3.11 + 3.12
+  Ruff
+  compile
+  site validation
+  full tests
+  stable-release verification
+  golden acceptance
+
+Security
+  dependency vulnerability audit
+  deterministic SPDX SBOM
+
+Reproducible Build
+  isolated double build
+  deterministic sdist normalization
+  byte-for-byte comparison
+  wheel + sdist install verification
 ```
 
-Money is stored in integer minor units to avoid floating-point accounting drift.
+Tagged releases additionally support:
 
-These are observational performance metrics, not causal estimates. Affiliate-Mate does not claim that a policy caused an outcome merely because the outcome followed it.
+- exact tag/version matching;
+- SHA-256 release manifest and verification;
+- GitHub artifact provenance attestations;
+- GitHub Release assets from the verified build;
+- optional PyPI Trusted Publishing via GitHub OIDC.
 
-## Reproducibility contract
+The workflow does not require a long-lived PyPI token. PyPI publication remains externally opt-in until the matching Trusted Publisher/environment is configured.
 
-The learning layer uses explicit versioned contracts:
+```bash
+affiliate-mate-release verify
+affiliate-mate-release performance-budget
+```
+
+See [`docs/RELEASE_POLICY.md`](docs/RELEASE_POLICY.md) and [`docs/STABLE_RELEASE_CHECKLIST.md`](docs/STABLE_RELEASE_CHECKLIST.md).
+
+## Machine-readable contracts
+
+Important outputs carry explicit schema versions, including:
 
 ```text
+affiliate-mate.analysis.v1
+affiliate-mate.research-brief.v1
+affiliate-mate.production-authorization.v1
+affiliate-mate.script.v1
+affiliate-mate.production-package.v1
+affiliate-mate.production-signoff.v1
+affiliate-mate.publish-plan.v1
 affiliate-mate.outcome-event.v1
 affiliate-mate.forecast-snapshot.v1
 affiliate-mate.scoring-policy.v1
 affiliate-mate.performance-report.v1
 affiliate-mate.calibration-report.v1
-affiliate-mate.backtest-report.v1
-affiliate-mate.walk-forward-report.v1
+affiliate-mate.backtest-report.v2
+affiliate-mate.walk-forward-report.v2
+affiliate-mate.exit-codes.v1
+affiliate-mate.compatibility.v1
+affiliate-mate.release-manifest.v1
 ```
 
-Historical forecast snapshots preserve candidate input, availability tracking, policy identity, and digests. Outcome events preserve source identity and reporting times. Replays are idempotent and conflicting source identities fail closed.
-
-See [`docs/EVALUATION_PROTOCOL.md`](docs/EVALUATION_PROTOCOL.md) for the normative evaluation specification.
-
-## Production trust chain
-
-v0.6 remains the production boundary:
-
-```text
-current research approval
-        +
-approval-bound research digest
-        ↓
-ProductionAuthorization
-        ↓
-grounded script
-        ↓
-content-addressed production package
-        ↓
-human production signoff
-        ↓
-publish dry-run
-```
-
-A stale approval, unsupported factual segment, replaced artifact, stale package signoff, missing disclosure, missing rendered asset, or side-effecting dry-run publisher blocks readiness.
-
-See [`docs/PRODUCTION_ADAPTERS.md`](docs/PRODUCTION_ADAPTERS.md).
-
-## Quality bar
-
-Affiliate-Mate is intentionally being built as a serious open-source tool rather than a single-use automation script. Every new subsystem should have:
-
-- a documented trust boundary
-- a deterministic credential-free path
-- explicit versioned machine contracts
-- fail-closed validation
-- immutable or append-oriented audit history where decisions matter
-- tests for adversarial/time-ordering cases
-- reproducible examples
-- migration/version semantics
-- no hidden promotion or side effects
-
-The repository-level quality gates are documented in [`docs/QUALITY_BAR.md`](docs/QUALITY_BAR.md).
+Package and payload versions are deliberately separate concepts.
 
 ## Documentation
 
 | Document | Purpose |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | system boundaries and end-to-end data flow |
-| [`docs/EVALUATION_PROTOCOL.md`](docs/EVALUATION_PROTOCOL.md) | normative learning-loop evaluation protocol |
-| [`docs/LEARNING_LOOP.md`](docs/LEARNING_LOOP.md) | v0.7 data model, imports, reports, and CLI |
-| [`docs/PRODUCTION_ADAPTERS.md`](docs/PRODUCTION_ADAPTERS.md) | v0.6 production trust chain |
-| [`docs/APPROVAL_INTEGRITY.md`](docs/APPROVAL_INTEGRITY.md) | revision-bound research approval |
-| [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) | claims, sources, citations, and review |
-| [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) | market evidence providers |
-| [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) | catalog/OAuth boundaries |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | system boundaries and data flow |
+| [`docs/COMPATIBILITY_POLICY.md`](docs/COMPATIBILITY_POLICY.md) | stable 1.x compatibility promise |
 | [`docs/EVIDENCE_ENGINE.md`](docs/EVIDENCE_ENGINE.md) | evidence storage and time semantics |
-| [`docs/DECISION_POLICY.md`](docs/DECISION_POLICY.md) | opportunity hard gates |
-| [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md) | analysis JSON contract |
-| [`docs/QUALITY_BAR.md`](docs/QUALITY_BAR.md) | repository-wide engineering acceptance bar |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | path to operational hardening and v1.0 |
+| [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) | catalog/OAuth boundary |
+| [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) | market evidence collection |
+| [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) | sources, claims, citations, approval |
+| [`docs/APPROVAL_INTEGRITY.md`](docs/APPROVAL_INTEGRITY.md) | revision-bound approval semantics |
+| [`docs/PRODUCTION_ADAPTERS.md`](docs/PRODUCTION_ADAPTERS.md) | grounded production and publish safety |
+| [`docs/EVALUATION_PROTOCOL.md`](docs/EVALUATION_PROTOCOL.md) | normative learning/evaluation protocol |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | diagnostics, jobs, recovery primitives |
+| [`docs/RECOVERY_RUNBOOK.md`](docs/RECOVERY_RUNBOOK.md) | operational incident recovery |
+| [`docs/ADAPTER_CERTIFICATION.md`](docs/ADAPTER_CERTIFICATION.md) | live-adapter review requirements |
+| [`docs/V1_THREAT_REVIEW.md`](docs/V1_THREAT_REVIEW.md) | internal threat review and residual risk |
+| [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) | maintainer and trust-boundary governance |
+| [`docs/RELEASE_POLICY.md`](docs/RELEASE_POLICY.md) | reproducible/attested releases |
+| [`docs/QUALITY_BAR.md`](docs/QUALITY_BAR.md) | repository engineering bar |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | completed milestones and post-1.0 evidence goals |
+
+## Security
+
+Report security issues according to [`SECURITY.md`](SECURITY.md). Do not put credentials or sensitive user data into public issues.
+
+`docs/V1_THREAT_REVIEW.md` is an internal review. Affiliate-Mate does **not** claim an independent third-party security audit unless an external report can actually be cited.
 
 ## Responsible use
 
-Users remain responsible for affiliate disclosures, program terms, API/data licenses, claim accuracy, media rights, generated-content review, privacy obligations, and platform rules.
+Users remain responsible for affiliate-program terms, disclosures, data/API licenses, claim accuracy, media rights, generated-content review, privacy obligations, and platform rules.
 
-Affiliate-Mate does not guarantee traffic, conversions, commissions, monetization, or income.
+Affiliate-Mate does not guarantee traffic, conversions, commissions, monetization, income, platform approval, or affiliate-program acceptance.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Trust-boundary changes require stronger review than ordinary implementation changes.
 
 ## License
 
-MIT
+MIT — see [`LICENSE`](LICENSE).
