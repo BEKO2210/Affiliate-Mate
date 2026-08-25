@@ -1,0 +1,54 @@
+name: Security
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install audit tooling
+        run: python -m pip install pip-audit
+      - name: Build audited requirement set
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          project = data["project"]
+          requirements = list(project.get("dependencies", []))
+          optional = project.get("optional-dependencies", {})
+          requirements.extend(optional.get("security", []))
+          Path("audit-requirements.txt").write_text(
+              "\n".join(sorted(dict.fromkeys(requirements))) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Audit runtime and security dependencies
+        run: pip-audit -r audit-requirements.txt --strict --progress-spinner off
+      - name: Install Affiliate-Mate security surface
+        run: python -m pip install -e ".[security]"
+      - name: Generate deterministic SPDX SBOM
+        run: >-
+          affiliate-mate-ops sbom
+          --created-at 2026-01-01T00:00:00+00:00
+          --output affiliate-mate.spdx.json
+      - name: Validate SBOM JSON
+        run: python -m json.tool affiliate-mate.spdx.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: affiliate-mate-spdx-sbom
+          path: affiliate-mate.spdx.json
+          if-no-files-found: error

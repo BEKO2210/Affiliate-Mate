@@ -1,0 +1,87 @@
+name: Reproducible Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-twice:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Establish deterministic build epoch
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tooling
+        run: python -m pip install build
+      - name: Build first copy outside source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/affiliate-mate-raw-a"
+          python -m build --sdist --wheel --outdir "$RUNNER_TEMP/affiliate-mate-raw-a"
+      - name: Build second copy outside source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/affiliate-mate-raw-b"
+          python -m build --sdist --wheel --outdir "$RUNNER_TEMP/affiliate-mate-raw-b"
+      - name: Normalize release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw_a="$RUNNER_TEMP/affiliate-mate-raw-a"
+          raw_b="$RUNNER_TEMP/affiliate-mate-raw-b"
+          dist_a="$RUNNER_TEMP/affiliate-mate-dist-a"
+          dist_b="$RUNNER_TEMP/affiliate-mate-dist-b"
+          rm -rf "$dist_a" "$dist_b"
+          mkdir -p "$dist_a" "$dist_b"
+          for pair in "$raw_a:$dist_a" "$raw_b:$dist_b"; do
+            raw="${pair%%:*}"
+            dist="${pair##*:}"
+            wheel="$(find "$raw" -maxdepth 1 -type f -name '*.whl' -print -quit)"
+            sdist="$(find "$raw" -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
+            test -n "$wheel"
+            test -n "$sdist"
+            cp "$wheel" "$dist/$(basename "$wheel")"
+            python scripts/normalize_sdist.py \
+              "$sdist" "$dist/$(basename "$sdist")" \
+              --epoch "$SOURCE_DATE_EPOCH"
+          done
+      - name: Compare artifact names and bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist_a="$RUNNER_TEMP/affiliate-mate-dist-a"
+          dist_b="$RUNNER_TEMP/affiliate-mate-dist-b"
+          diff -u <(cd "$dist_a" && find . -type f -printf '%P\n' | sort) \
+                  <(cd "$dist_b" && find . -type f -printf '%P\n' | sort)
+          while IFS= read -r file; do
+            cmp "$dist_a/$file" "$dist_b/$file"
+          done < <(cd "$dist_a" && find . -type f -printf '%P\n' | sort)
+          sha256sum "$dist_a"/*
+      - name: Validate normalized distributions install
+        shell: bash
+        run: |
+          set -euo pipefail
+          dist_a="$RUNNER_TEMP/affiliate-mate-dist-a"
+          python -m pip install --no-deps --force-reinstall "$dist_a"/*.whl
+          python -c "import affiliate_mate; print(affiliate_mate.__version__)"
+          python -m pip install --no-deps --force-reinstall "$dist_a"/*.tar.gz
+          python -c "import affiliate_mate; print(affiliate_mate.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducible-python-distributions
+          path: ${{ runner.temp }}/affiliate-mate-dist-a/*
+          if-no-files-found: error
