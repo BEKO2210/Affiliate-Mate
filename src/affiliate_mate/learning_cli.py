@@ -31,7 +31,7 @@ from .learning_store import LearningStore
 
 
 def _time(raw: str) -> datetime:
-    value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    value = datetime.fromisoformat(raw)
     if value.tzinfo is None or value.utcoffset() is None:
         raise argparse.ArgumentTypeError("timestamp must include a timezone")
     return value.astimezone(UTC)
