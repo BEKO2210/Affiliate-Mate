@@ -73,7 +73,7 @@ class SignatureEnvelope:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, object]) -> "SignatureEnvelope":
+    def from_dict(cls, payload: dict[str, object]) -> SignatureEnvelope:
         expected = {
             "schema_version",
             "algorithm",
