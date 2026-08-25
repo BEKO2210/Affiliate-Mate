@@ -1,44 +1,48 @@
 # Affiliate-Mate
 
-**Open-source, evidence-first product opportunity research for affiliate creators.**
+**Open-source, evidence-first affiliate opportunity research with an audited human approval boundary.**
 
-Affiliate-Mate does not start by generating a video. It starts by asking a harder question:
+Affiliate-Mate does not start by generating a video. It starts with a harder question:
 
-> **Which products have enough verifiable economics, demand, competition, and content opportunity to justify deeper research?**
+> **Which products have enough verifiable economics, demand, market opportunity, and claim-level research to justify publishing anything at all?**
 
-The project is provider-neutral and local-first. Catalog discovery, market intelligence, evidence history, decision gates, scoring, and later content production are deliberately separate layers.
+The project is provider-neutral and local-first. Catalog discovery, market intelligence, evidence history, opportunity decisions, editorial research, and future production adapters are deliberately separate layers.
 
 ## What Affiliate-Mate is not
 
-Affiliate-Mate is not a "two prompts = passive income" generator, an Amazon scraper, a YouTube scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience, keyword volume, or commission rates.
+Affiliate-Mate is not a "two prompts = passive income" generator, an Amazon scraper, a YouTube scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience, keyword volume, commission rates, claims, or citations.
 
-Most of the project works without an LLM or cloud account. Live Amazon and YouTube integrations are optional adapters.
+Most workflows work without an LLM or cloud account. Live Amazon and YouTube access is optional.
 
-## Current status — v0.4 Market Intelligence
+## Current status — v0.5 Research Workspace
 
-v0.4 fills the research boundary that catalog data alone cannot answer:
+v0.5 adds the boundary that should exist before any script, voice, or video generation:
 
-- supported YouTube Data API v3 competition collector
-- deterministic, inspectable competition and content-gap scoring
-- user-owned/licensed keyword-demand CSV adapter
-- explicit buyer-intent evidence
-- trend + seasonality metrics from time-series exports
-- signal-specific evidence freshness/TTL rules
-- source-level API call budgets
-- provider collection health reports
-- deterministic JSON replay fixtures
-- near-duplicate product clustering before expensive collection
-- third CLI: `affiliate-mate-intel`
+- append-oriented SQLite research workspace
+- explicit source provenance records
+- claim/evidence ledger
+- evidence stance: `supports`, `contradicts`, `context`
+- append-only claim state audit history
+- optimistic expected-state conflict protection
+- citation-ready notes linked to claims
+- fail-closed research completeness policy
+- stronger independent-source requirements for high-risk claims
+- contradictory-evidence approval blocker
+- append-only human product approval history
+- deterministic user-supplied review deduplication and clustering
+- versioned Markdown/JSON product research briefs
+- fourth CLI: `affiliate-mate-research`
 
 Previous milestones remain intact:
 
-- v0.1 — transparent opportunity score
-- v0.2 — evidence store, hard gates, sensitivity, automation JSON
-- v0.3 — Amazon Creators API catalog integration, commission schedules, bounded HTTP
+- **v0.1** — transparent opportunity score
+- **v0.2** — evidence store, hard gates, sensitivity, automation JSON
+- **v0.3** — Amazon Creators API catalog integration, commission schedules, bounded HTTP
+- **v0.4** — YouTube/keyword/trend market intelligence, freshness, budgets, replay, clustering
 
-It still performs **no storefront/YouTube HTML scraping, no automatic posting, no LLM content generation, and no invented economics**.
+Affiliate-Mate still performs **no storefront/YouTube HTML scraping, no automatic posting, no LLM content generation, and no invented economics or product claims**.
 
-## Architecture in one minute
+## Architecture
 
 ```text
  Catalog providers                Market evidence providers
@@ -47,7 +51,7 @@ mock  Amazon   future         keyword  YouTube  trend   replay
  \      |       /                \      |       |       /
      CatalogItem                  EvidenceObservation
           |                              |
-   commission schedule             SQLite history
+   commission schedule             SQLite evidence history
           |                    provenance + time + expiry
           +---------------+--------------+
                           v
@@ -61,12 +65,18 @@ mock  Amazon   future         keyword  YouTube  trend   replay
                           |
                        shortlist
                           |
-                 human research / approval
+                 Research Workspace
+             sources + claims + citations
+             notes + review themes + audit
                           |
-                 future production adapters
+              fail-closed approval gates
+                          |
+                    HUMAN APPROVAL
+                          |
+                future v0.6 production
 ```
 
-A provider can acquire evidence. It cannot declare a product profitable and cannot bypass the decision engine.
+A provider can acquire evidence. It cannot declare a product profitable, mark a product claim true, approve publication, or bypass the decision engine.
 
 ## Quick start
 
@@ -78,17 +88,18 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
 ```
 
-The package installs three CLIs:
+The package installs four CLIs:
 
 ```text
-affiliate-mate          evidence + decision engine
-affiliate-mate-catalog  catalog discovery + commission tools
-affiliate-mate-intel    market intelligence + replay + clustering
+affiliate-mate           evidence + opportunity decision engine
+affiliate-mate-catalog   catalog discovery + commission tools
+affiliate-mate-intel     market intelligence + replay + clustering
+affiliate-mate-research  claims + citations + briefs + human approval
 ```
 
-## Credential-free market-intelligence run
+## 1. Collect market evidence
 
-The repository includes illustrative keyword, trend, and replay fixtures:
+A fully credential-free example:
 
 ```bash
 affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
@@ -98,9 +109,9 @@ affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
   --format json
 ```
 
-These fixtures are development data, not current market claims.
+The repository fixtures are development data, not current market claims.
 
-Now analyze with the persisted evidence:
+Analyze candidates with the persisted evidence:
 
 ```bash
 affiliate-mate analyze sample_data/products.csv \
@@ -109,17 +120,170 @@ affiliate-mate analyze sample_data/products.csv \
   --include-rejected
 ```
 
-## YouTube market intelligence
+## 2. Open a research workspace
 
-Affiliate-Mate uses the supported **YouTube Data API v3**, not HTML scraping. Configure an API key through the environment:
+The research tables can live in the same SQLite file as market evidence because they use an independent schema namespace:
+
+```bash
+affiliate-mate-research init affiliate-mate.sqlite3
+```
+
+Add a source:
+
+```bash
+affiliate-mate-research source-add affiliate-mate.sqlite3 demo-headphones-1 \
+  --source-id manufacturer-spec \
+  --kind manufacturer \
+  --title "Manufacturer specifications" \
+  --locator "https://example.invalid/spec" \
+  --publisher "Example Manufacturer"
+```
+
+Add a claim. Creating it does **not** make it supported:
+
+```bash
+affiliate-mate-research claim-add affiliate-mate.sqlite3 demo-headphones-1 \
+  "The cable is detachable." \
+  --claim-id detachable-cable \
+  --risk medium \
+  --actor editor@example
+```
+
+Link the claim to a precise source location:
+
+```bash
+affiliate-mate-research claim-link affiliate-mate.sqlite3 \
+  detachable-cable manufacturer-spec \
+  --stance supports \
+  --locator "Specifications > Cable" \
+  --actor editor@example
+```
+
+After a human checks the evidence, append a state transition:
+
+```bash
+affiliate-mate-research claim-state affiliate-mate.sqlite3 detachable-cable supported \
+  --expected-state draft \
+  --actor reviewer@example \
+  --reason "Specification checked against the cited source."
+```
+
+Add a citation-ready note linked to the claim:
+
+```bash
+affiliate-mate-research note-add affiliate-mate.sqlite3 demo-headphones-1 \
+  "Cable evidence" \
+  "The detachable-cable claim is supported by the manufacturer specification." \
+  --claim-id detachable-cable \
+  --actor editor@example
+```
+
+Inspect the complete audit state:
+
+```bash
+affiliate-mate-research status affiliate-mate.sqlite3 demo-headphones-1
+```
+
+## 3. Human approval is fail-closed
+
+Start review:
+
+```bash
+affiliate-mate-research approval affiliate-mate.sqlite3 demo-headphones-1 in_review \
+  --expected-state draft \
+  --actor reviewer@example \
+  --reason "Research package ready for review."
+```
+
+Approval is refused until all configured research gates pass:
+
+```bash
+affiliate-mate-research approval affiliate-mate.sqlite3 demo-headphones-1 approved \
+  --expected-state in_review \
+  --actor reviewer@example \
+  --reason "Claims, evidence links, notes, and source diversity verified."
+```
+
+Default completeness requires:
+
+| Research gate | Default |
+|---|---:|
+| sources | >= 2 |
+| distinct publishers | >= 2 |
+| active claims | >= 1 |
+| research notes | >= 1 |
+| state of every active claim | `supported` |
+| support sources / ordinary claim | >= 1 |
+| support sources / high-risk claim | >= 2 |
+| distinct publishers / high-risk claim | >= 2 |
+| every active claim covered by a note | required |
+| contradictory evidence on supported claims | none |
+
+Rejected claims remain in the audit trail but are excluded from active completeness.
+
+## 4. User-supplied review analysis
+
+Affiliate-Mate can triage a user-owned or properly licensed review export without scraping a review site:
+
+```bash
+affiliate-mate-research reviews \
+  sample_data/reviews.example.csv \
+  demo-headphones-1 DE
+```
+
+The deterministic baseline:
+
+1. filters product + marketplace strictly,
+2. fingerprints normalized text,
+3. counts exact duplicate copies,
+4. removes duplicate copies before thematic clustering,
+5. clusters by explainable token overlap,
+6. derives common terms,
+7. uses the supplied rating for coarse positive/mixed/negative orientation.
+
+The result is an editorial aid, not a claim that a heuristic cluster represents semantic truth.
+
+## 5. Build a citation-ready product brief
+
+Markdown:
+
+```bash
+affiliate-mate-research brief \
+  sample_data/products.csv \
+  demo-headphones-1 \
+  affiliate-mate.sqlite3 \
+  --evidence-db affiliate-mate.sqlite3 \
+  --reviews-csv sample_data/reviews.example.csv \
+  --output research-brief.md
+```
+
+Versioned JSON:
+
+```bash
+affiliate-mate-research brief \
+  sample_data/products.csv \
+  demo-headphones-1 \
+  affiliate-mate.sqlite3 \
+  --format json > research-brief.json
+```
+
+The machine-readable contract is:
+
+```text
+affiliate-mate.research-brief.v1
+```
+
+The brief contains current candidate values, decision gates, sensitivity analysis, evidence resolution, research completeness, claims, evidence links, notes, optional review themes, approval state, and deterministic source references (`S1`, `S2`, ...).
+
+It does not create new product claims.
+
+## Market intelligence
+
+Affiliate-Mate uses the supported YouTube Data API v3 rather than YouTube HTML scraping. Configure live access only through the environment:
 
 ```bash
 export YOUTUBE_API_KEY="..."
-```
 
-Collect live competition/content-gap evidence:
-
-```bash
 affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
   --youtube \
   --youtube-language de \
@@ -127,109 +291,21 @@ affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
   --youtube-max-collections 10
 ```
 
-One landscape uses `search.list` to discover the top videos and `videos.list` to obtain view statistics. The current scoring records its ingredients in observation metadata:
+Competition and content-gap scores are deterministic heuristics over sampled results and their ingredients are stored in observation metadata. Collection budgets are explicit and bounded.
 
-**Competition**
-
-```text
-40% median-view strength
-25% query-token coverage
-20% recent-result share
-15% dominant-channel share
-```
-
-**Content gap**
-
-```text
-45% missing query-token coverage
-30% missing review/comparison-format coverage
-25% stale-result share
-```
-
-These are transparent heuristics over the sampled top results, not a model of YouTube's ranking algorithm.
-
-YouTube announced a granular quota transition for `search.list` in June 2026. Affiliate-Mate therefore exposes an explicit process-local collection budget rather than hiding unlimited search loops behind automation.
+Keyword demand/buyer intent and trend/seasonality can be supplied through user-owned or licensed exports. Missing values are not fabricated.
 
 See [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md).
 
-## Keyword demand and buyer intent
+## Catalog discovery
 
-Affiliate-Mate accepts user-owned or properly licensed exports:
-
-```csv
-product_id,marketplace,monthly_searches,buyer_intent,observed_at,source,confidence
-```
-
-Both values are explicit. Missing demand or buyer intent is not guessed.
-
-```bash
-affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
-  --keyword-csv sample_data/keyword_demand.example.csv
-```
-
-## Trend and seasonality
-
-Time-series input is intentionally minimal:
-
-```csv
-product_id,marketplace,observed_at,value
-```
-
-At least four points are required. v0.4 emits:
-
-- `trend_strength` — recent-half versus prior-half level, neutral around 50
-- `seasonality` — coefficient-of-variation intensity
-
-They are **descriptive auxiliary evidence**. v0.4 does not silently inject them into the opportunity score or present them as forecasts.
-
-## Evidence freshness
-
-Market truth ages. Default TTLs are explicit:
-
-| Signal | Default validity |
-|---|---:|
-| price | 1 day |
-| commission rate | 7 days |
-| YouTube competition | 7 days |
-| content gap | 7 days |
-| buyer intent | 14 days |
-| trend strength | 14 days |
-| monthly search demand | 30 days |
-| seasonality / evidence quality | 30 days |
-
-A provider-supplied expiry always wins; generic policy never extends it.
-
-## Collection health and replay
-
-`collect_evidence()` reports each provider as `success`, `empty`, or `failed`. Evidence is rejected when a provider returns a different product or marketplace than requested.
-
-Successful independent evidence may still be persisted if another provider fails. Use `--fail-fast` when a workflow requires all configured providers to succeed.
-
-`ReplayEvidenceProvider` makes captured numeric evidence reproducible without network calls. This is used for deterministic contributor workflows and regression tests, not to bypass normal expiry semantics.
-
-## Near-duplicate clustering
-
-Before spending live API calls, likely variants can be grouped by normalized title-token similarity:
-
-```bash
-affiliate-mate-intel cluster sample_data/products.csv \
-  --threshold 0.72 \
-  --format json
-```
-
-Clustering only groups within the same marketplace. It never deletes candidates or merges economics automatically.
-
-## Catalog discovery without credentials
+Credential-free mock search:
 
 ```bash
 affiliate-mate-catalog mock-search camera --marketplace DE --format json
 ```
 
-The mock provider is deterministic and makes no network calls.
-
-## Amazon Creators API
-
-Affiliate-Mate targets Amazon's Creators API rather than new work around legacy PA-API 5.
+Live Amazon catalog access targets Amazon Creators API and reads credentials only from environment variables:
 
 ```bash
 export AMAZON_CREATORS_CREDENTIAL_ID="..."
@@ -237,77 +313,31 @@ export AMAZON_CREATORS_CREDENTIAL_SECRET="..."
 export AMAZON_CREATORS_CREDENTIAL_VERSION="3.2"
 export AMAZON_ASSOCIATE_TAG="..."
 
-affiliate-mate-catalog amazon-search camera \
-  --marketplace DE \
-  --search-index All \
-  --limit 10
+affiliate-mate-catalog amazon-search camera --marketplace DE --limit 10
 ```
 
-Live access requires valid access granted by Amazon. The project does not automate enrollment.
+Affiliate-Mate does not hard-code permanent Amazon commission rates. Commission schedules are explicit user data.
 
 See [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md).
 
-## Commission schedules are explicit
-
-Affiliate-Mate does **not** ship permanent Amazon commission percentages. Rates can change and may differ by program, marketplace, and category.
-
-```csv
-marketplace,category,commission_rate
-DE,ExampleElectronics,0.0300
-DE,ExampleKitchen,0.0400
-*,*,0.0100
-```
-
-The repository sample is illustrative, **not a statement of current Amazon rates**.
-
-```bash
-affiliate-mate-catalog commission-lookup \
-  sample_data/commission_schedule.example.csv \
-  DE ExampleElectronics
-```
-
 ## Evidence and decision engine
-
-Rank normalized candidates:
 
 ```bash
 affiliate-mate score sample_data/products.csv --top 10
-```
 
-Run hard gates, scoring, and sensitivity analysis:
-
-```bash
-affiliate-mate analyze sample_data/products.csv --include-rejected
-```
-
-Stable machine-readable report:
-
-```bash
 affiliate-mate analyze sample_data/products.csv \
+  --evidence-db affiliate-mate.sqlite3 \
   --include-rejected \
-  --format json > analysis.json
-```
-
-The decision automation contract remains `affiliate-mate.analysis.v1`.
-
-## Local evidence store
-
-```bash
-affiliate-mate evidence init affiliate-mate.sqlite3
-
-affiliate-mate evidence add affiliate-mate.sqlite3 demo-gps-1 monthly_searches 4200 \
-  --source manual-keyword-check \
-  --confidence 0.9 \
-  --observed-at 2026-08-25T10:00:00Z
-
-affiliate-mate evidence latest affiliate-mate.sqlite3 demo-gps-1 monthly_searches \
-  --as-of 2026-08-25T11:00:00Z \
   --format json
 ```
 
-Evidence history keeps source, timestamp, marketplace, confidence, optional expiry, unit, and strict JSON metadata. Historical `as_of` evaluation excludes future observations.
+The decision automation contract remains:
 
-## Transparent score
+```text
+affiliate-mate.analysis.v1
+```
+
+The default opportunity score remains transparent:
 
 | Component | Weight |
 |---|---:|
@@ -324,50 +354,39 @@ Base estimated affiliate value per 1,000 views:
 1000 × estimated CTR × estimated conversion rate × commission per sale
 ```
 
-This is an assumption-driven estimate, not a revenue promise. The engine reports a CTR/conversion sensitivity floor/base/ceiling.
-
-## Default rejection policy
-
-| Gate | Default |
-|---|---:|
-| Commission per sale | ≥ 2.00 |
-| Monthly searches | ≥ 100 |
-| YouTube competition | ≤ 95 |
-| Buyer intent | ≥ 35 |
-| Evidence quality | ≥ 40 |
-| Estimated value / 1,000 views | ≥ 1.00 |
-| Opportunity score | ≥ 45 |
-
-A high weighted score cannot override a failed hard gate.
+That is an assumption-driven estimate, not a revenue promise. Sensitivity analysis exposes the effect of weaker/stronger CTR and conversion assumptions.
 
 ## Product principles
 
 1. **Evidence before generation.** Research first, content second.
-2. **Fail closed on ambiguous critical data.** Missing evidence must not become fake confidence.
-3. **Provider-neutral core.** Amazon and YouTube are adapters, not the architecture.
+2. **Fail closed on critical ambiguity.** Missing evidence must not become fake confidence.
+3. **Provider-neutral core.** Marketplaces and platforms are adapters, not the architecture.
 4. **Catalog facts are not market intelligence.** Discovery and judgment remain separate.
-5. **Time and provenance survive normalization.** Market evidence expires.
-6. **No brittle scraping as a foundation.** Prefer supported APIs and user-owned exports.
-7. **No permanent hard-coded commission truth.** Economics come from explicit data.
-8. **No hidden unlimited collection.** Retries and source call budgets are bounded.
-9. **Auxiliary metrics do not silently alter scoring.** Scoring-policy changes must be explicit.
-10. **Human approval before publishing.** Automation assists judgment; it does not erase it.
-11. **Original content over mass production.** Repetitive template spam is a non-goal.
-12. **Every revenue estimate exposes its assumptions.**
+5. **A source is not automatically proof.** Claims require explicit evidence links and human state transitions.
+6. **Contradictions are first-class data.** Do not hide them to improve a score or brief.
+7. **High-risk claims require stronger source diversity.**
+8. **Human approval is an auditable state machine, not a boolean shortcut.**
+9. **Time and provenance survive normalization.** Market evidence expires.
+10. **Prefer supported APIs and user-owned exports over brittle scraping.**
+11. **No permanent hard-coded commission truth.**
+12. **Retries and external-call budgets are bounded.**
+13. **Original content over mass production.** Repetitive template spam is a non-goal.
+14. **Every revenue estimate exposes its assumptions.**
 
 ## Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system boundaries
 - [`docs/EVIDENCE_ENGINE.md`](docs/EVIDENCE_ENGINE.md) — evidence invariants and storage
-- [`docs/DECISION_POLICY.md`](docs/DECISION_POLICY.md) — hard gates and decisions
-- [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md) — JSON automation contract
+- [`docs/DECISION_POLICY.md`](docs/DECISION_POLICY.md) — opportunity hard gates
+- [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md) — analysis JSON contract
 - [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) — catalog/OAuth contracts
-- [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) — v0.4 signals and collectors
+- [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) — market signals and collectors
+- [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — v0.5 claims, citations, review analysis, and approval
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones
 
-## Roadmap
+## Next milestone
 
-v0.4 establishes auditable market intelligence. The next milestone is **v0.5 — Research Workspace**: product briefs, claim/evidence ledgers, user-supplied review clustering, citation-ready notes, research completeness gates, and explicit human approval history.
+**v0.6 — Production Adapters** can add LLM-neutral script, TTS, render, thumbnail, metadata, and disclosure interfaces. The critical invariant will be: **production may consume only an explicitly approved research package, and live publishing can never bypass that approval boundary.**
 
 ## Responsible use
 
