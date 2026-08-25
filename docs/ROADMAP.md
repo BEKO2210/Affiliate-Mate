@@ -38,14 +38,19 @@
 
 ## v0.4 — Market Intelligence
 
-- [ ] YouTube search competition collector
-- [ ] keyword-demand adapter
-- [ ] trend / seasonality signals
-- [ ] SERP/content-gap evidence
-- [ ] duplicate / near-duplicate product clustering
-- [ ] evidence freshness policies per signal
-- [ ] source-level rate-limit budgets and collection run reports
-- [ ] deterministic fixture/replay mode for external providers
+- [x] YouTube Data API competition collector
+- [x] user-owned/licensed keyword-demand adapter
+- [x] trend + seasonality signals from explicit time-series exports
+- [x] transparent YouTube content-gap evidence
+- [x] duplicate / near-duplicate product clustering
+- [x] evidence freshness policies per signal
+- [x] source-level call budgets
+- [x] provider collection run reports
+- [x] deterministic fixture/replay mode for external evidence
+- [x] separate market-intelligence CLI
+- [x] credential-free examples for keyword, trend, and replay workflows
+
+A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or user-owned exports remain the preferred boundary.
 
 ## v0.5 — Research Workspace
 
@@ -55,6 +60,8 @@
 - [ ] citation-ready research notes
 - [ ] human approval state machine
 - [ ] audit trail for approval decisions
+- [ ] research completeness gates
+- [ ] source/citation coverage report
 
 ## v0.6 — Production Adapters
 
@@ -84,3 +91,4 @@
 - guaranteed-income claims
 - hiding score assumptions behind an opaque model
 - hard-coding affiliate commission rates as permanent truth
+- silently turning descriptive trend metrics into forecasts
