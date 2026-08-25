@@ -3,144 +3,147 @@
 Affiliate-Mate separates **catalog acquisition**, **market evidence**, **resolution**, **decision logic**, and **content production** so that no single marketplace, data vendor, or LLM becomes the system.
 
 ```text
-external catalogs             independent market sources
-       |                               |
-       v                               v
-   CatalogItem                    observations
-       |                               |
-commission schedule                 SQLite
-       |                               |
-research signals <--------------------+
-       |
-       v
- ProductCandidate
-       |
- evidence resolution
-       |
- required gates
-       |
- transparent score
- + sensitivity
-       |
-   shortlist
-       |
- human research / approval
-       |
- future production adapters
+ external catalogs                  independent market sources
+        |                         /        |         |        \
+        v                    keyword    YouTube    trend    replay
+    CatalogItem                    \        |         |        /
+        |                           \       |         |       /
+ commission schedule                 EvidenceObservation
+        |                                      |
+        +--------------------+-----------------+
+                             v
+                     SQLite evidence store
+                  provenance + time + expiry
+                             |
+                     point-in-time resolution
+                             |
+                      ProductCandidate
+                             |
+                       required gates
+                             |
+                 transparent score + sensitivity
+                             |
+                          shortlist
+                             |
+                  human research / approval
+                             |
+                  future production adapters
 ```
+
+Near-duplicate clustering sits before expensive live collection and is advisory: it groups likely variants but never merges economics or deletes candidates.
 
 ## 1. Catalog acquisition
 
-Catalog adapters discover products and normalize provider-specific payloads into `CatalogItem` records. A catalog adapter may expose facts such as:
-
-- provider product ID
-- title
-- marketplace
-- current catalog price and currency
-- product detail URL
-- brand
-- provider/category label
+Catalog adapters discover products and normalize provider-specific payloads into `CatalogItem` records. A catalog adapter may expose facts such as provider product ID, title, marketplace, price/currency, product detail URL, brand, and category label.
 
 It must **not** decide whether a product is commercially attractive or invent missing market evidence.
 
-v0.3 introduces `CatalogSearchProvider` plus two implementations:
+Current implementations:
 
 - `MockCatalogProvider` — deterministic, credential-free contributor fixture
 - `AmazonCatalogProvider` — backed by Amazon Creators API
 
-The existing v0.2 `CandidateProvider` and `EvidenceProvider` contracts remain valid for normalized candidate/evidence sources.
+The existing `CandidateProvider` and `EvidenceProvider` protocols remain the provider-neutral boundaries for normalized candidates and observations.
 
 ## 2. Catalog economics boundary
 
 Affiliate commission rates are not treated as permanent catalog facts. `CommissionSchedule` is explicit user-supplied configuration/evidence with normalized marketplace/category keys and deterministic wildcard precedence.
 
-`candidate_from_catalog()` only promotes a `CatalogItem` to `ProductCandidate` after the caller supplies:
+`candidate_from_catalog()` only promotes a `CatalogItem` after the caller supplies a valid price/currency, commission category, matching commission rule, and independent research signals.
 
-- price
-- currency
-- commission category
-- matching commission rule
-- independent `ResearchSignals`
+## 3. Market intelligence acquisition
 
-This prevents a catalog API from silently injecting guessed demand, competition, buyer intent, or economics into scoring.
+v0.4 adds explicit evidence producers instead of filling research fields with defaults:
 
-## 3. Provider transport boundary
+- `CSVKeywordEvidenceProvider` → `monthly_searches`, `buyer_intent`
+- `YouTubeCompetitionProvider` → `youtube_competition`, `content_gap`
+- `CSVTrendEvidenceProvider` → auxiliary `trend_strength`, `seasonality`
+- `ReplayEvidenceProvider` → deterministic captured numeric observations
 
-Live APIs use `JsonHttpClient`, which isolates network mechanics from provider parsing.
+The trend signals are intentionally auxiliary in v0.4. They are preserved and auditable but do not silently alter the existing score. Any future scoring change must be explicit and backtestable.
 
-Transport behavior is injectable so tests can deterministically exercise:
+## 4. Source budgets and transport
 
-- successful responses
-- transient HTTP failures
-- rate-limit responses
-- `Retry-After`
-- exponential backoff
-- malformed JSON
-- non-retryable failures
+Live HTTP APIs use `JsonHttpClient`, which isolates retries and transport failures from provider semantics. Retries are bounded and transient failures can honor `Retry-After`.
 
-Retries are bounded. Provider outages cannot become infinite request loops.
+`SourceCallBudget` adds a second safety boundary: an in-process workflow can reserve named API operations against explicit limits. Multi-operation reservations are atomic, so a failed reservation does not partially consume another operation's allowance.
 
-Amazon-specific OAuth/token caching and response semantics remain in `amazon_creators.py`; generic HTTP behavior remains in `http_client.py`.
+The YouTube client reserves one `youtube.search.list` and one `youtube.videos.list` operation before collecting a landscape. The CLI exposes a maximum number of YouTube product collections per process.
 
-## 4. Normalized candidate
+These call budgets are safety rails, not replacements for provider-side quota enforcement.
 
-`ProductCandidate` is the stable scoring shape. It contains current working values without vendor-specific response objects.
+## 5. Signal freshness
 
-The legacy `score` path can operate directly on this model. The stricter `analyze` path additionally preserves input completeness through `CandidateInput`.
+`SignalFreshnessPolicy` attaches default expiries to time-sensitive observations:
 
-## 5. Evidence store
+- price: 1 day
+- commission rate: 7 days
+- YouTube competition/content gap: 7 days
+- buyer intent: 14 days
+- trend strength: 14 days
+- monthly search demand: 30 days
+- seasonality/evidence quality: 30 days
 
-`SQLiteEvidenceStore` persists numeric observations with:
+An explicit provider expiry always wins. Generic policy never extends a producer-supplied validity window.
 
-- product and signal
-- source
-- marketplace
-- observed timestamp
-- confidence
-- optional expiry
-- optional unit
-- JSON metadata
+## 6. Collection orchestration
+
+`collect_evidence()` executes independent evidence providers for one candidate and validates every returned observation before storage.
+
+Provider run states are:
+
+- `success`
+- `empty`
+- `failed`
+
+A provider is marked failed when it raises or returns evidence for another product or marketplace. In normal mode, valid observations from unrelated providers can still be persisted. `fail_fast` is available for stricter workflows.
+
+This prevents a broken adapter from contaminating another candidate's evidence history while still making partial collection observable.
+
+## 7. Normalized candidate
+
+`ProductCandidate` remains the stable scoring shape. It contains working values rather than vendor-specific response objects. The stricter analysis path additionally preserves input completeness through `CandidateInput`.
+
+## 8. Evidence store
+
+`SQLiteEvidenceStore` persists numeric observations with product, signal, source, marketplace, observed timestamp, confidence, expiry, unit, and strict JSON metadata.
 
 The store is append-oriented and point-in-time queryable. History and current validity are separate concepts.
 
-## 6. Evidence resolution
+## 9. Evidence resolution
 
-`resolve_candidate_from_store()` overlays the latest valid persisted observation for each supported candidate signal. The resolution result keeps an audit trail of what was applied and what was skipped for low confidence.
+`resolve_candidate_from_store()` overlays the latest valid persisted observation for each supported decision signal and retains an audit trail of applied or skipped evidence.
 
-Resolution is strict where silent coercion would be dangerous. Integer signals cannot contain fractions, and explicitly unit-tagged price evidence cannot cross currencies implicitly.
+Resolution fails closed where coercion would be dangerous: integer signals cannot contain fractions and explicitly unit-tagged price evidence cannot cross currencies implicitly.
 
-Catalog parsing follows the same philosophy: an Amazon price whose currency conflicts with the configured marketplace is rejected rather than silently converted.
-
-## 7. Decision engine
+## 10. Decision engine
 
 The decision engine has two layers:
 
-1. **hard gates** — reject missing/weak critical conditions
-2. **transparent weighted score** — rank eligible opportunities
+1. **hard gates** — reject missing or weak critical conditions
+2. **transparent weighted score** — rank only eligible opportunities
 
-All thresholds and component weights are inspectable. Rejected candidates retain their score for diagnosis, but a high score cannot override a failed hard gate.
+A high weighted score cannot override a failed hard gate.
 
-## 8. Sensitivity analysis
+## 11. Sensitivity analysis
 
-Base CTR and conversion assumptions are stressed over a deterministic grid. This exposes how fragile the EV/1K estimate is instead of treating a single point estimate as certainty.
+Base CTR and conversion assumptions are stressed over a deterministic grid. This exposes how fragile EV/1K is instead of presenting a single point estimate as certainty.
 
-## 9. Automation boundary
+## 12. Automation boundaries
 
-The versioned `affiliate-mate.analysis.v1` JSON contract serializes policy, gates, score, sensitivity, and evidence resolution. This is the intended integration boundary for future agents and workflows.
+The versioned `affiliate-mate.analysis.v1` contract remains the stable decision-report boundary.
 
-Catalog discovery has its own JSON output and remains upstream. This keeps provider acquisition independent from the stable decision-report contract.
+Catalog discovery and market-intelligence collection have separate outputs. This is deliberate: acquisition contracts may evolve without silently changing the decision-report schema.
 
-## 10. Human approval checkpoint
+## 13. Human approval checkpoint
 
-A shortlist is permission to research further, not permission to publish. Future production adapters must preserve an explicit approval boundary for product claims, rights, disclosures, and editorial quality.
+A shortlist is permission to research further, not permission to publish. Future research and production adapters must preserve explicit approval for product claims, rights, disclosures, and editorial quality.
 
-## 11. Production adapters
+## 14. Production adapters
 
-Script, voice, video, thumbnail, and publishing tools belong at the edge of the system. The core remains useful when none are configured.
+Script, voice, video, thumbnail, and publishing tools belong at the edge of the system. The analysis core remains useful when none are configured.
 
 ## Error boundaries
-
-Failure classes remain explicit rather than being flattened into `None` or fake data:
 
 ```text
 TransportError
@@ -151,23 +154,27 @@ provider-specific API error
     |
 provider protocol/semantic error
     |
-local validation error
+collection validation failure
+    |
+local decision gates
 ```
 
-Callers can therefore distinguish a temporary network problem from expired credentials, an API rejection, malformed provider data, or invalid local configuration.
+Call-budget exhaustion is explicit (`BudgetExceededError`) rather than being disguised as missing evidence.
 
 ## Design constraints
 
-- no dependency on brittle storefront HTML scraping
+- no dependency on brittle storefront or YouTube HTML scraping
 - no secret keys committed to the repository
-- no provider credential in exception messages
+- no provider credential in normal exception messages
 - no hard-coded affiliate commission rates presented as permanent truth
+- no keyword-demand fabrication
+- no descriptive trend metric presented as a forecast
 - no revenue claim without visible assumptions
-- deterministic ranking, gate, resolution, sensitivity, transport, and provider-contract tests
-- retries are bounded and non-retryable errors fail immediately
+- retries and live-source call budgets are bounded
 - adapters fail closed on invalid critical data
 - timestamps and provenance survive normalization
 - point-in-time analysis must not read future observations
-- evidence cannot silently cross marketplace/currency boundaries
+- evidence cannot silently cross product, marketplace, or currency boundaries
 - catalog discovery cannot bypass required research evidence
+- auxiliary market signals cannot silently change the score
 - no automatic publish path may bypass future approval state
