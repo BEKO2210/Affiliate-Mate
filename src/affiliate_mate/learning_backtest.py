@@ -17,6 +17,7 @@ from .learning_models import (
 from .learning_reports import PerformancePolicy, PerformanceReport, build_performance_report
 from .learning_store import LearningStore
 from .models import ProductCandidate
+from .money import minor_units_to_major
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +26,7 @@ class BacktestPolicy:
     min_candidate_selections: int = 3
     max_relative_ev_regression: float = 0.05
     require_zero_baseline_replay_mismatches: bool = True
+    require_zero_unobservable_selections: bool = True
     performance_policy: PerformancePolicy = field(default_factory=PerformancePolicy)
 
     def __post_init__(self) -> None:
@@ -59,6 +61,8 @@ class BacktestReport:
     evaluation_forecasts: int
     excluded_immature_or_incomplete: int
     baseline_replay_mismatches: int
+    baseline_unobservable_selections: int
+    candidate_unobservable_selections: int
     baseline: SelectionMetrics
     candidate: SelectionMetrics
     relative_ev_delta: float | None
@@ -77,6 +81,8 @@ class BacktestReport:
             "evaluation_forecasts": self.evaluation_forecasts,
             "excluded_immature_or_incomplete": self.excluded_immature_or_incomplete,
             "baseline_replay_mismatches": self.baseline_replay_mismatches,
+            "baseline_unobservable_selections": self.baseline_unobservable_selections,
+            "candidate_unobservable_selections": self.candidate_unobservable_selections,
             "baseline": self.baseline.to_dict(),
             "candidate": self.candidate.to_dict(),
             "relative_ev_delta": self.relative_ev_delta,
@@ -121,7 +127,7 @@ def _selection_metrics(
     ev = (
         None
         if views <= 0 or currency is None
-        else (net / 100.0) * 1000.0 / views
+        else minor_units_to_major(net, currency) * 1000.0 / views
     )
     return SelectionMetrics(
         selected=len(rows),
@@ -154,6 +160,10 @@ def backtest_policy_change(
     Policies must have existed by `train_cutoff`. Forecasts are immutable snapshots from
     [train_cutoff, evaluation_end). Outcomes are filtered by what was observed and ingested by
     `evaluated_at`. Historical baseline acceptance is replayed and mismatches are surfaced.
+
+    A policy that selects an item whose realized outcome is not observable cannot receive
+    implicit credit by having that item disappear from evaluation. Such selections are counted
+    explicitly and block promotion under the default policy.
     """
 
     for field_name, value in (
@@ -189,9 +199,11 @@ def backtest_policy_change(
         marketplace=marketplace,
     )
 
-    complete: list[tuple[ForecastSnapshot, PerformanceReport]] = []
+    complete: list[tuple[ForecastSnapshot, PerformanceReport, bool]] = []
     excluded = 0
     baseline_replay_mismatches = 0
+    baseline_unobservable_selections = 0
+    candidate_unobservable_selections = 0
     for forecast in forecasts:
         if forecast.policy_version != baseline_version:
             raise ValueError(
@@ -206,6 +218,11 @@ def backtest_policy_change(
         )
         if replay.accepted != forecast.accepted:
             baseline_replay_mismatches += 1
+        challenger = evaluate_candidate(
+            candidate,
+            policy=candidate_policy,
+            available_fields=_available_fields(forecast),
+        )
         performance = build_performance_report(
             store,
             forecast,
@@ -214,21 +231,19 @@ def backtest_policy_change(
         )
         if not performance.sample_eligible:
             excluded += 1
+            if forecast.accepted:
+                baseline_unobservable_selections += 1
+            if challenger.accepted:
+                candidate_unobservable_selections += 1
             continue
-        complete.append((forecast, performance))
+        complete.append((forecast, performance, challenger.accepted))
 
     baseline_selected: list[tuple[ForecastSnapshot, PerformanceReport]] = []
     candidate_selected: list[tuple[ForecastSnapshot, PerformanceReport]] = []
-    for forecast, performance in complete:
-        candidate = _candidate(forecast)
+    for forecast, performance, challenger_accepted in complete:
         if forecast.accepted:
             baseline_selected.append((forecast, performance))
-        decision = evaluate_candidate(
-            candidate,
-            policy=candidate_policy,
-            available_fields=_available_fields(forecast),
-        )
-        if decision.accepted:
+        if challenger_accepted:
             candidate_selected.append((forecast, performance))
 
     baseline_metrics = _selection_metrics(baseline_selected)
@@ -256,6 +271,17 @@ def backtest_policy_change(
         gates.append(
             f"baseline replay mismatch count is {baseline_replay_mismatches}, expected 0"
         )
+    if active_policy.require_zero_unobservable_selections:
+        if baseline_unobservable_selections:
+            gates.append(
+                "baseline selected forecasts without observable complete outcomes: "
+                f"{baseline_unobservable_selections}"
+            )
+        if candidate_unobservable_selections:
+            gates.append(
+                "candidate selected forecasts without observable complete outcomes: "
+                f"{candidate_unobservable_selections}"
+            )
     if baseline_metrics.currency != candidate_metrics.currency:
         gates.append("baseline and candidate realized currencies differ")
     if relative_ev_delta is None:
@@ -276,6 +302,8 @@ def backtest_policy_change(
         evaluation_forecasts=len(complete),
         excluded_immature_or_incomplete=excluded,
         baseline_replay_mismatches=baseline_replay_mismatches,
+        baseline_unobservable_selections=baseline_unobservable_selections,
+        candidate_unobservable_selections=candidate_unobservable_selections,
         baseline=baseline_metrics,
         candidate=candidate_metrics,
         relative_ev_delta=relative_ev_delta,

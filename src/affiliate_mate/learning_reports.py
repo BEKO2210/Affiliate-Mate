@@ -17,6 +17,13 @@ from .learning_models import (
     sha256_json,
 )
 from .learning_store import LearningStore
+from .money import minor_units_to_major
+
+_COUNT_KINDS = {
+    OutcomeKind.VIDEO_VIEW,
+    OutcomeKind.AFFILIATE_CLICK,
+    OutcomeKind.ORDER,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,24 +97,57 @@ class PerformanceReport:
         return sha256_json(self.to_dict())
 
 
+def _validate_non_overlapping_count_windows(events: Iterable[OutcomeEvent]) -> None:
+    """Reject overlapping aggregate snapshots from the same source and metric.
+
+    Count exports are treated as interval aggregates. Summing two overlapping snapshots can
+    silently double-count cumulative analytics. Touching half-open windows are allowed.
+    Distinct sources remain distinct evidence streams and are not deduplicated implicitly.
+    """
+
+    grouped: dict[tuple[str, OutcomeKind], list[OutcomeEvent]] = {}
+    for event in events:
+        if event.kind in _COUNT_KINDS:
+            grouped.setdefault((event.source, event.kind), []).append(event)
+
+    for (source, kind), group in grouped.items():
+        ordered = sorted(
+            group,
+            key=lambda event: (event.window_start, event.window_end, event.source_event_id),
+        )
+        latest_end: datetime | None = None
+        latest_id: str | None = None
+        for event in ordered:
+            if latest_end is not None and event.window_start < latest_end:
+                raise ValueError(
+                    "overlapping aggregate outcome windows would double-count "
+                    f"{source}/{kind.value}: {latest_id} overlaps {event.source_event_id}"
+                )
+            if latest_end is None or event.window_end > latest_end:
+                latest_end = event.window_end
+                latest_id = event.source_event_id
+
+
 def _aggregate_outcomes(
     forecast: ForecastSnapshot,
     events: Iterable[OutcomeEvent],
 ) -> OutcomeTotals:
+    materialized = list(events)
+    _validate_non_overlapping_count_windows(materialized)
+
     views = clicks = orders = 0
     gross = refunds = reversals = 0
     currencies: set[str] = set()
-    for event in events:
+    for event in materialized:
         if event.product_id != forecast.product_id or event.content_id != forecast.content_id:
             raise ValueError("outcome does not match forecast product/content lineage")
         if event.marketplace != forecast.marketplace:
             raise ValueError("outcome marketplace does not match forecast")
         if (
             forecast.package_digest is not None
-            and event.package_digest is not None
             and event.package_digest != forecast.package_digest
         ):
-            raise ValueError("outcome package lineage conflicts with forecast")
+            raise ValueError("outcome package lineage does not match forecast")
         if event.kind is OutcomeKind.VIDEO_VIEW:
             views += event.count
         elif event.kind is OutcomeKind.AFFILIATE_CLICK:
@@ -380,7 +420,7 @@ def build_calibration_report(
         realized_value = (
             None
             if views <= 0 or currency is None
-            else (net / 100.0) * 1000.0 / views
+            else minor_units_to_major(net, currency) * 1000.0 / views
         )
         enough_forecasts = len(items) >= active_policy.min_forecasts
         cohorts.append(
