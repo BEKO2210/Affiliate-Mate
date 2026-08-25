@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "affiliate-mate"
-version = "0.6.0"
-description = "Open-source evidence-first affiliate research and production planning with auditable approval boundaries."
+version = "0.7.0"
+description = "Open-source evidence-first affiliate research, production planning, and leakage-resistant learning."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -25,6 +25,7 @@ affiliate-mate-catalog = "affiliate_mate.catalog_cli:main"
 affiliate-mate-intel = "affiliate_mate.intelligence_cli:main"
 affiliate-mate-research = "affiliate_mate.research_cli:main"
 affiliate-mate-production = "affiliate_mate.production_cli:main"
+affiliate-mate-learning = "affiliate_mate.learning_cli:main"
 
 [project.optional-dependencies]
 dev = [
