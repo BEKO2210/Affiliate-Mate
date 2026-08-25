@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import threading
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -98,13 +98,16 @@ class JsonlTelemetrySink:
         return "jsonl"
 
     def emit(self, event: TelemetryEvent) -> None:
-        payload = json.dumps(
-            event.to_dict(),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        ).encode("utf-8") + b"\n"
+        payload = (
+            json.dumps(
+                event.to_dict(),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+            + b"\n"
+        )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
         with self._lock:
@@ -114,6 +117,7 @@ class JsonlTelemetrySink:
                 os.fsync(fd)
             finally:
                 os.close(fd)
+        os.chmod(self.path, 0o600)
 
 
 def event_from_exception(
@@ -122,12 +126,21 @@ def event_from_exception(
     *,
     at: datetime,
     attributes: dict[str, Any] | None = None,
+    safe_message: str | None = None,
 ) -> TelemetryEvent:
-    """Create a structured error event without serializing traceback locals or secret values."""
+    """Create an error event without serializing traceback locals or raw exception messages.
+
+    Exception messages frequently embed provider payloads, tokens, file paths, or user data. Only
+    the exception type is recorded automatically. A caller may add an explicitly reviewed
+    `safe_message`; arbitrary `str(exc)` is intentionally not emitted.
+    """
 
     safe_attributes = dict(attributes or {})
     safe_attributes["exception_type"] = type(exc).__name__
-    safe_attributes["exception_message"] = str(exc)
+    if safe_message is not None:
+        if not safe_message.strip():
+            raise ValueError("safe_message must not be blank")
+        safe_attributes["safe_message"] = safe_message
     return TelemetryEvent(
         name=name,
         timestamp=at,
