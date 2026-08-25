@@ -91,7 +91,7 @@ class ApprovalSnapshotRegistry:
 
     def _connection(self):
         # Package-internal use of the store connection is intentional: one workspace, one DB.
-        return self._store._connect()  # noqa: SLF001
+        return self._store._connect()
 
     def _initialize(self) -> None:
         self._store.initialize()
