@@ -67,13 +67,19 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 - [x] stronger independent-support gates for high-risk claims
 - [x] contradictory-evidence approval blocker
 - [x] source/citation coverage report
+- [x] deterministic SHA-256 research snapshot
+- [x] approval-event binding to an immutable research revision
+- [x] stale-approval detection after any research mutation
+- [x] effective `production_ready` approval guard
 - [x] versioned research brief JSON contract
 - [x] dedicated `affiliate-mate-research` CLI
 
 ## v0.6 — Production Adapters
 
+- [ ] production entry gate consumes effective approval guard, never raw approval state
 - [ ] LLM-neutral script interface
 - [ ] structured script claim references
+- [ ] approved research digest retained in every production asset manifest
 - [ ] TTS adapter interface
 - [ ] video-render adapter interface
 - [ ] thumbnail brief generator
@@ -103,3 +109,4 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 - hard-coding affiliate commission rates as permanent truth
 - silently turning descriptive trend metrics into forecasts
 - approving unsupported or contradicted claims
+- treating a stale historical approval as permission for production
