@@ -44,11 +44,11 @@ def candidate() -> ProductCandidate:
     )
 
 
-def policy(version: str, *, created_at: datetime = dt(1)) -> ScoringPolicyVersion:
+def policy(version: str, *, created_at: datetime | None = None) -> ScoringPolicyVersion:
     return ScoringPolicyVersion(
         version=version,
         policy_payload=EvaluationPolicy().to_dict(),
-        created_at=created_at,
+        created_at=dt(1) if created_at is None else created_at,
     )
 
 
@@ -217,6 +217,8 @@ def test_walk_forward_rejects_backwards_overlapping_folds(tmp_path) -> None:
         PolicyFold("b", "c", "DE", dt(10), dt(20)),
         PolicyFold("b2", "c2", "DE", dt(15), dt(25)),
     ]
-    with LearningStore(tmp_path / "learning.sqlite3") as store:
-        with pytest.raises(ValueError, match="must not overlap backwards"):
-            walk_forward_backtest(store, folds, evaluated_at=dt(30))
+    with (
+        LearningStore(tmp_path / "learning.sqlite3") as store,
+        pytest.raises(ValueError, match="must not overlap backwards"),
+    ):
+        walk_forward_backtest(store, folds, evaluated_at=dt(30))
