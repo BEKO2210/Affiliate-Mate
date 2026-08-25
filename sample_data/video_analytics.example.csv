@@ -1,0 +1,2 @@
+source_event_id,product_id,marketplace,content_id,window_start,window_end,observed_at,views,package_digest
+yt-demo-2026-01-31,demo-headphones-1,DE,youtube:demo123,2026-01-02T00:00:00Z,2026-01-31T23:59:59Z,2026-02-01T08:00:00Z,12500,
