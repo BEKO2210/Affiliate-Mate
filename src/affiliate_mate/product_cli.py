@@ -9,15 +9,22 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import __version__
+from .config_reference import config_reference_markdown, config_reference_payload
+from .doctor import DoctorReport, run_doctor
 from .exit_codes import ExitCode, exit_code_contract
-from .plugin_registry import plugin_registry_payload
+from .onboarding import build_onboarding_plan, execute_onboarding
+from .ops_config import AppConfig, ConfigError, DatabaseConfig, ObservabilityConfig, load_config
+from .plugin_registry import plugin_health_payload, plugin_registry_payload
+from .release_channel import ReleaseChannelError, resolve_release_channel
 from .workspace import (
+    Workspace,
     WorkspaceError,
     create_demo_workspace,
     create_workspace,
     find_workspace,
     load_workspace,
 )
+from .workspace_upgrade import UpgradeError, apply_workspace_upgrade, plan_workspace_upgrade
 
 CommandMain = Callable[[list[str] | None], int]
 
@@ -34,24 +41,36 @@ _TOP_LEVEL_COMMANDS = (
     "analyze",
     "catalog",
     "completion",
+    "config",
     "contract",
     "demo",
     "doctor",
     "evidence",
+    "init",
     "intel",
     "learning",
     "ops",
     "plugins",
     "production",
+    "release",
     "research",
     "score",
     "status",
+    "upgrade",
     "workspace",
 )
 
 
 def _json(value: object) -> None:
     print(json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False))
+
+
+def _write_text(text: str, output: Path | None = None) -> None:
+    if output is None:
+        print(text, end="")
+        return
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(text, encoding="utf-8")
 
 
 def _delegate(module_name: str, argv: list[str]) -> int:
@@ -69,11 +88,15 @@ def _top_help() -> str:
         "Usage:\n"
         "  affiliate-mate <command> [options]\n\n"
         "Product commands:\n"
+        "  init         Guided local onboarding with safe defaults\n"
         "  workspace    Create, inspect, and resolve a portable workspace/profile\n"
         "  demo         Create a credential-free end-to-end demo workspace\n"
         "  status       Show current workspace state without mutating it\n"
         "  doctor       Run operational diagnostics for a workspace/config\n"
-        "  plugins      Inspect built-in and installed adapter capabilities\n"
+        "  plugins      Inspect and diagnose adapter capabilities\n"
+        "  upgrade      Plan/apply backed-up workspace schema upgrades\n"
+        "  config       Generate the current configuration reference\n"
+        "  release      Inspect explicit stable/beta/dev channel policy\n"
         "  completion   Generate shell completion for bash, zsh, or fish\n"
         "  contract     Print stable machine-readable CLI contracts\n\n"
         "Domain commands:\n"
@@ -87,6 +110,35 @@ def _top_help() -> str:
         "  --help       Show this help\n\n"
         "Every domain command keeps its previous standalone CLI as a compatibility shim.\n"
     )
+
+
+def _init_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="affiliate-mate init")
+    parser.add_argument("path", type=Path, nargs="?", default=Path("."))
+    parser.add_argument("--profile", default="default")
+    parser.add_argument("--marketplace", default="DE")
+    parser.add_argument("--demo", action="store_true")
+    parser.add_argument("--channel", choices=("stable", "beta", "dev"))
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--plan", action="store_true", help="Show the onboarding plan only.")
+    args = parser.parse_args(argv)
+    try:
+        plan = build_onboarding_plan(
+            args.path,
+            profile=args.profile,
+            marketplace=args.marketplace,
+            demo=args.demo,
+            channel=args.channel,
+        )
+        if args.plan:
+            _json(plan.to_dict())
+            return ExitCode.OK
+        workspace = execute_onboarding(plan, force=args.force)
+    except (WorkspaceError, ReleaseChannelError) as exc:
+        print(f"onboarding error: {exc}", file=sys.stderr)
+        return ExitCode.CONFIG_ERROR
+    _json({"plan": plan.to_dict(), "workspace": workspace.to_dict()})
+    return ExitCode.OK
 
 
 def _workspace_parser() -> argparse.ArgumentParser:
@@ -170,16 +222,32 @@ def _plugins_command(argv: list[str]) -> int:
     listed = sub.add_parser("list", help="List adapter/plugin capabilities without loading them.")
     listed.add_argument("--builtin-only", action="store_true")
     listed.add_argument("--format", choices=("json", "text"), default="text")
+    doctor = sub.add_parser("doctor", help="Check adapter prerequisites without exposing secrets.")
+    doctor.add_argument("--builtin-only", action="store_true")
+    doctor.add_argument("--format", choices=("json", "text"), default="text")
     args = parser.parse_args(argv)
-    payload = plugin_registry_payload(include_external=not args.builtin_only)
+
+    if args.plugins_command == "list":
+        payload = plugin_registry_payload(include_external=not args.builtin_only)
+        if args.format == "json":
+            _json(payload)
+        else:
+            for plugin in payload["plugins"]:
+                capabilities = ",".join(plugin["capabilities"])
+                trust = "builtin" if plugin["trusted_builtin"] else plugin["source"]
+                print(f"{plugin['name']:<24} {capabilities:<28} {trust}")
+        return ExitCode.OK
+
+    payload = plugin_health_payload(include_external=not args.builtin_only)
     if args.format == "json":
         _json(payload)
     else:
         for plugin in payload["plugins"]:
-            capabilities = ",".join(plugin["capabilities"])
-            trust = "builtin" if plugin["trusted_builtin"] else plugin["source"]
-            print(f"{plugin['name']:<24} {capabilities:<28} {trust}")
-    return ExitCode.OK
+            print(f"[{plugin['status']:<13}] {plugin['name']}: {plugin['message']}")
+            missing = plugin["missing_requirements"]
+            if missing:
+                print(f"                  missing: {', '.join(missing)}")
+    return ExitCode.OK if payload["healthy"] else ExitCode.CHECK_FAILED
 
 
 def _status_command(argv: list[str]) -> int:
@@ -228,22 +296,125 @@ def _status_command(argv: list[str]) -> int:
     return ExitCode.OK
 
 
+def _doctor_text(report: DoctorReport) -> str:
+    lines: list[str] = []
+    for check in report.checks:
+        lines.append(f"[{check.status.value.upper():4}] {check.code}: {check.message}")
+        if check.remediation:
+            lines.append(f"       remediation: {check.remediation}")
+    lines.append(
+        f"summary: healthy={str(report.healthy).lower()} "
+        f"warnings={report.warning_count} failures={report.failure_count}"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _resolved_observability(workspace: Workspace, raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    path = Path(raw).expanduser()
+    if path.is_absolute():
+        return str(path)
+    return str(workspace.resolve(raw))
+
+
 def _doctor_command(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="affiliate-mate doctor", add_help=False)
+    if "--config" in argv:
+        return _delegate("affiliate_mate.ops_cli", ["doctor", *argv])
+    parser = argparse.ArgumentParser(prog="affiliate-mate doctor")
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--profile")
-    known, remainder = parser.parse_known_args(argv)
-    if known.workspace is None and known.profile is None:
-        return _delegate("affiliate_mate.ops_cli", ["doctor", *argv])
+    parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args(argv)
+
     try:
-        workspace = find_workspace(known.workspace, profile=known.profile)
+        workspace = find_workspace(args.workspace, profile=args.profile)
+    except WorkspaceError as exc:
+        if args.workspace is None and args.profile is None:
+            return _delegate("affiliate_mate.ops_cli", ["doctor", *argv])
+        print(f"workspace error: {exc}", file=sys.stderr)
+        return ExitCode.NOT_FOUND
+    try:
+        loaded = load_config(workspace.config_path, env={})
+        config = AppConfig(
+            database=DatabaseConfig(path=str(workspace.database_path)),
+            features=loaded.features,
+            observability=ObservabilityConfig(
+                jsonl_path=_resolved_observability(workspace, loaded.observability.jsonl_path)
+            ),
+        )
+    except (ConfigError, WorkspaceError) as exc:
+        print(f"configuration error: {exc}", file=sys.stderr)
+        return ExitCode.CONFIG_ERROR
+
+    report = run_doctor(config)
+    if args.format == "json":
+        text = json.dumps(report.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    else:
+        text = _doctor_text(report)
+    _write_text(text, args.output)
+    return report.exit_code
+
+
+def _upgrade_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="affiliate-mate upgrade")
+    sub = parser.add_subparsers(dest="upgrade_command", required=True)
+    plan_parser = sub.add_parser("plan", help="Inspect required workspace migrations.")
+    plan_parser.add_argument("path", type=Path, nargs="?")
+    plan_parser.add_argument("--profile")
+    apply_parser = sub.add_parser("apply", help="Backup, migrate, and verify a workspace.")
+    apply_parser.add_argument("path", type=Path, nargs="?")
+    apply_parser.add_argument("--profile")
+    apply_parser.add_argument("--yes", action="store_true", help="Confirm all planned mutations.")
+    args = parser.parse_args(argv)
+    try:
+        workspace = find_workspace(args.path, profile=args.profile)
+        if args.upgrade_command == "plan":
+            plan = plan_workspace_upgrade(workspace)
+            _json(plan.to_dict())
+            return ExitCode.CHECK_FAILED if plan.blocked else ExitCode.OK
+        result = apply_workspace_upgrade(workspace, confirmed=args.yes)
+        _json(result.to_dict())
+        return ExitCode.OK
     except WorkspaceError as exc:
         print(f"workspace error: {exc}", file=sys.stderr)
         return ExitCode.NOT_FOUND
-    return _delegate(
-        "affiliate_mate.ops_cli",
-        ["doctor", "--config", str(workspace.config_path), *remainder],
-    )
+    except UpgradeError as exc:
+        print(f"upgrade error: {exc}", file=sys.stderr)
+        return ExitCode.CHECK_FAILED
+
+
+def _config_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="affiliate-mate config")
+    sub = parser.add_subparsers(dest="config_command", required=True)
+    reference = sub.add_parser("reference", help="Generate the current config contract.")
+    reference.add_argument("--format", choices=("json", "markdown"), default="markdown")
+    args = parser.parse_args(argv)
+    if args.format == "json":
+        _json(config_reference_payload())
+    else:
+        print(config_reference_markdown(), end="")
+    return ExitCode.OK
+
+
+def _release_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="affiliate-mate release")
+    sub = parser.add_subparsers(dest="release_command", required=True)
+    channel = sub.add_parser("channel", help="Resolve explicit stable/beta/dev channel policy.")
+    channel.add_argument("--channel", choices=("stable", "beta", "dev"))
+    channel.add_argument("--format", choices=("json", "text"), default="text")
+    args = parser.parse_args(argv)
+    try:
+        state = resolve_release_channel(args.channel)
+    except ReleaseChannelError as exc:
+        print(f"release channel error: {exc}", file=sys.stderr)
+        return ExitCode.CONFIG_ERROR
+    if args.format == "json":
+        _json(state.to_dict())
+    else:
+        print(f"{state.channel.value} ({state.version}, source={state.source})")
+    return ExitCode.OK
 
 
 def _completion_script(shell: str) -> str:
@@ -298,6 +469,8 @@ def main(argv: list[str] | None = None) -> int:
         return _delegate("affiliate_mate.cli", raw)
     if command in _DELEGATED_COMMANDS:
         return _delegate(_DELEGATED_COMMANDS[command][0], rest)
+    if command == "init":
+        return int(_init_command(rest))
     if command == "workspace":
         return int(_workspace_command(rest))
     if command == "demo":
@@ -308,6 +481,12 @@ def main(argv: list[str] | None = None) -> int:
         return int(_status_command(rest))
     if command == "doctor":
         return int(_doctor_command(rest))
+    if command == "upgrade":
+        return int(_upgrade_command(rest))
+    if command == "config":
+        return int(_config_command(rest))
+    if command == "release":
+        return int(_release_command(rest))
     if command == "completion":
         return int(_completion_command(rest))
     if command == "contract":
