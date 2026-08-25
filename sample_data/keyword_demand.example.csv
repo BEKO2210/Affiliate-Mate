@@ -1,0 +1,5 @@
+product_id,marketplace,monthly_searches,buyer_intent,observed_at,source,confidence
+demo-gps-1,DE,2600,84,2026-08-20T00:00:00Z,example-keyword-export,0.80
+demo-dashcam-1,DE,8400,79,2026-08-20T00:00:00Z,example-keyword-export,0.80
+demo-projector-1,DE,11800,63,2026-08-20T00:00:00Z,example-keyword-export,0.80
+demo-headphones-1,DE,3900,87,2026-08-20T00:00:00Z,example-keyword-export,0.80
