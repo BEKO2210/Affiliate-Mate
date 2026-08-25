@@ -1,0 +1,2 @@
+source_event_id,product_id,marketplace,content_id,window_start,window_end,observed_at,clicks,orders,commission_minor,refund_minor,reversal_minor,currency,package_digest
+aff-demo-2026-01-31,demo-headphones-1,DE,youtube:demo123,2026-01-02T00:00:00Z,2026-01-31T23:59:59Z,2026-02-03T08:00:00Z,610,41,9225,725,0,EUR,
