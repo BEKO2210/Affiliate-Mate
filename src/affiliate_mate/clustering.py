@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from affiliate_mate.models import ProductCandidate
 
-
 _TOKEN_RE = re.compile(r"\w+", flags=re.UNICODE)
 _STOPWORDS = {
     "and",
