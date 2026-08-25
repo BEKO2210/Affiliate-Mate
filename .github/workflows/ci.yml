@@ -27,6 +27,8 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Compile
-        run: python -m compileall -q src tests
+        run: python -m compileall -q src tests scripts
+      - name: Site validation
+        run: python scripts/validate_site.py
       - name: Tests
         run: pytest -q
