@@ -1,5 +1,7 @@
 # Roadmap
 
+Affiliate-Mate uses milestone releases to harden one trust boundary at a time. Completed milestones remain part of the compatibility surface unless a migration is explicitly documented.
+
 ## v0.1 — Foundation
 
 - [x] normalized product model
@@ -17,152 +19,189 @@
 - [x] expiry-aware point-in-time lookup
 - [x] persisted-evidence candidate resolution
 - [x] hard rejection gates
-- [x] fail-closed required-evidence checks for analysis
-- [x] sensitivity analysis for CTR/conversion assumptions
-- [x] score explanations and rejection reasons
-- [x] versioned JSON output for automation
-- [x] evidence CLI (`init`, `add`, `latest`)
+- [x] fail-closed required-evidence checks
+- [x] sensitivity analysis
+- [x] versioned automation JSON
+- [x] evidence CLI
 
 ## v0.3 — Catalog Integrations
 
 - [x] Amazon Creators API adapter
-- [x] adapter contract tests with no live credentials required
+- [x] adapter contract tests without live credentials
 - [x] marketplace-aware currency handling
-- [x] explicit commission schedule import
-- [x] bounded rate-limit and retry handling
-- [x] demo/mock provider for contributors without credentials
+- [x] explicit commission schedules
+- [x] bounded retry/rate-limit handling
+- [x] deterministic mock provider
 - [x] provider health/error taxonomy
 - [x] OAuth token caching + bounded 401 refresh
-- [x] separate catalog-discovery CLI
-- [x] live-provider secrets only through environment variables
+- [x] catalog CLI
+- [x] secrets from environment only
 
 ## v0.4 — Market Intelligence
 
 - [x] YouTube Data API competition collector
 - [x] user-owned/licensed keyword-demand adapter
-- [x] trend + seasonality signals from explicit time-series exports
-- [x] transparent YouTube content-gap evidence
-- [x] duplicate / near-duplicate product clustering
-- [x] evidence freshness policies per signal
+- [x] trend + seasonality evidence
+- [x] transparent content-gap evidence
+- [x] near-duplicate product clustering
+- [x] evidence freshness policies
 - [x] source-level call budgets
-- [x] provider collection run reports
-- [x] deterministic fixture/replay mode for external evidence
-- [x] separate market-intelligence CLI
-- [x] credential-free examples for keyword, trend, and replay workflows
-
-A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or user-owned exports remain the preferred boundary.
+- [x] collection run reports
+- [x] deterministic replay mode
+- [x] market-intelligence CLI
 
 ## v0.5 — Research Workspace
 
-- [x] product brief generation from evidence
-- [x] claim/evidence ledger with explicit evidence stance
-- [x] deterministic clustering from user-supplied review data
-- [x] exact duplicate review detection before clustering
-- [x] citation-ready research notes
+- [x] evidence-backed product briefs
+- [x] claim/evidence ledger
+- [x] explicit support / contradiction / context stance
+- [x] user-supplied review deduplication + clustering
+- [x] citation-ready notes
 - [x] append-only claim state history
 - [x] human approval state machine
-- [x] append-only approval audit trail
-- [x] optimistic expected-state conflict detection
+- [x] optimistic state-conflict protection
 - [x] research completeness gates
-- [x] stronger independent-support gates for high-risk claims
-- [x] contradictory-evidence approval blocker
-- [x] source/citation coverage report
-- [x] deterministic SHA-256 research snapshot
-- [x] approval-event binding to an immutable research revision
-- [x] stale-approval detection after any research mutation
-- [x] effective `production_ready` approval guard
-- [x] versioned research brief JSON contract
-- [x] dedicated `affiliate-mate-research` CLI
+- [x] stronger independent evidence for high-risk claims
+- [x] contradictory-evidence blocker
+- [x] deterministic research snapshot
+- [x] approval bound to exact research revision
+- [x] stale-approval detection
+- [x] effective production-ready guard
+- [x] research CLI + versioned brief contract
 
 ## v0.6 — Production Adapters
 
-- [x] production entry gate consumes effective approval guard, never raw approval state
-- [x] production authorization bound to approval event + research SHA-256 digest
-- [x] point-of-use production authorization re-check
-- [x] LLM-neutral `ScriptGenerator` interface
-- [x] grounded `ScriptRequest` exports approved claims and source locators only
-- [x] structured factual script segments carry claim IDs
-- [x] deterministic credential-free strict-template generator
-- [x] script-grounding validation against current supported research claims
-- [x] `TTSAdapter` interface
-- [x] `VideoRenderAdapter` interface
-- [x] `ThumbnailAdapter` interface
-- [x] `PublisherAdapter` interface
-- [x] deterministic non-side-effecting TTS/render/thumbnail/publish plans
-- [x] thumbnail brief generator with claim-safe default guidance
-- [x] YouTube-oriented metadata generator
-- [x] German + English affiliate disclosure templates
-- [x] disclosure-presence package invariant
+- [x] production entry consumes effective approval guard
+- [x] revision-specific production authorization
+- [x] point-of-use authorization re-check
+- [x] LLM-neutral ScriptGenerator interface
+- [x] grounded script requests and factual claim IDs
+- [x] deterministic strict-template generator
+- [x] script grounding validation
+- [x] provider-neutral TTS / video / thumbnail / publisher protocols
+- [x] non-side-effecting dry-run adapters
+- [x] affiliate disclosure templates
 - [x] content-addressed artifact manifest
-- [x] safe relative artifact-path validation
-- [x] artifact SHA-256 + byte-length integrity validation
-- [x] production package retains approval event + approved research digest
-- [x] deterministic production package SHA-256
-- [x] second human signoff bound to exact production package digest
-- [x] package mutation / stale-signoff detection
-- [x] versioned production authorization/script/package/signoff/publish-plan contracts
-- [x] strict production JSON deserialization
+- [x] artifact path + byte integrity checks
+- [x] production package digest
+- [x] second human signoff bound to exact package
+- [x] stale-signoff detection
+- [x] strict versioned production contracts
 - [x] fail-closed publishing dry-run
-- [x] strict dry-run rejects side-effecting publisher plans
-- [x] no live publisher included in v0.6
-- [x] dedicated `affiliate-mate-production` CLI
-- [x] production trust-boundary and threat-model documentation
+- [x] no live publisher in v0.6
+- [x] production CLI + threat-model documentation
 
-## v0.7 — Learning Loop
+## v0.7 — Leakage-Resistant Learning Loop
 
-- [ ] provider-neutral realized-outcome event model
-- [ ] import YouTube/video analytics snapshots
-- [ ] import affiliate click/conversion/revenue reports
-- [ ] normalize refunds, reversals, and delayed attribution
-- [ ] preserve observation time, ingestion time, source, and reporting window
-- [ ] join outcomes to product/video/production-package lineage without lossy title matching
-- [ ] predicted-vs-realized performance report
-- [ ] CTR calibration by marketplace/category/price band
-- [ ] conversion-rate calibration by marketplace/category/price band
-- [ ] commission/revenue realization calibration
-- [ ] confidence intervals and minimum-sample safeguards
-- [ ] calibration drift detection
-- [ ] cohort stability report
-- [ ] scoring-policy version registry
-- [ ] backtest candidate scoring changes before adoption
-- [ ] walk-forward evaluation for scoring-policy changes
-- [ ] explicit train/evaluation time split
-- [ ] target-leakage / future-data guards
-- [ ] historical replays retain the policy version known at decision time
-- [ ] no automatic model/policy promotion without evaluation gates
-- [ ] learning-loop CLI and versioned machine-readable reports
+- [x] provider-neutral realized-outcome event model
+- [x] separate effective / observed / ingested timestamps
+- [x] immutable source-event identities with idempotent replay
+- [x] atomic outcome batch import
+- [x] YouTube/video analytics snapshot import
+- [x] affiliate click/order/commission/refund/reversal import
+- [x] integer minor-unit accounting
+- [x] delayed attribution semantics
+- [x] explicit product/content/package lineage
+- [x] immutable point-in-time forecast snapshots
+- [x] frozen candidate + policy + analysis digests
+- [x] policy must exist before forecast time
+- [x] future-evidence guard during forecast capture
+- [x] mature-window predicted-vs-realized performance report
+- [x] explicit required-outcome completeness
+- [x] CTR / conversion / EV-per-1K calibration
+- [x] Wilson 95% intervals for rate metrics
+- [x] minimum-sample safeguards
+- [x] marketplace/category/price-band cohorts
+- [x] calibration drift states
+- [x] immutable scoring-policy registry with parent lineage
+- [x] baseline historical-decision replay
+- [x] replay mismatch promotion blocker
+- [x] explicit chronological train/evaluation split
+- [x] chronological holdout backtest
+- [x] walk-forward fold evaluation
+- [x] non-overlapping fold-order guard
+- [x] future-data / target-leakage guards
+- [x] no automatic policy promotion
+- [x] append-only human policy-decision audit
+- [x] versioned outcome/forecast/performance/calibration/backtest contracts
+- [x] learning-loop CLI
+- [x] normative evaluation protocol
+- [x] repository-wide engineering quality bar
 
 ## v0.8 — Operational Hardening
 
-- [ ] asymmetric signatures for release/production manifests
-- [ ] configurable secrets-provider interface
+- [ ] unified typed configuration model
+- [ ] configuration schema versions + migrations
+- [ ] `affiliate-mate doctor` environment and database diagnostics
 - [ ] resumable/idempotent external jobs
 - [ ] external-call idempotency keys
 - [ ] crash-safe production checkpoints
 - [ ] structured event/audit logging
 - [ ] OpenTelemetry-compatible observability boundary
-- [ ] backup/restore validation for evidence and research stores
+- [ ] backup + restore command and automated validation
+- [ ] SQLite integrity/foreign-key/lineage diagnostics
+- [ ] configurable secrets-provider interface
+- [ ] asymmetric signatures for release/production manifests
 - [ ] deterministic release builds
 - [ ] SBOM generation
 - [ ] dependency vulnerability gate
-- [ ] branch protection / release policy documentation
-- [ ] future live publisher behind an explicit opt-in feature flag
-- [ ] live publisher re-checks production authorization and package signoff immediately before side effects
-- [ ] live publisher never receives LLM/model credentials by default
+- [ ] branch-protection and release-policy documentation
+- [ ] security reporting policy
+- [ ] contribution guide
+- [ ] changelog/release-note discipline
+- [ ] live publisher behind explicit opt-in feature flag
+- [ ] live publisher re-checks authorization + signoff immediately before side effects
+- [ ] live publisher isolated from model credentials by default
+
+## v0.9 — Product Experience
+
+- [ ] one primary `affiliate-mate` command tree while preserving compatibility shims
+- [ ] guided local onboarding wizard
+- [ ] workspace/profile model
+- [ ] credential-free end-to-end demo workspace
+- [ ] shell completion
+- [ ] stable machine-readable exit-code contract
+- [ ] human-readable diagnostics with remediation hints
+- [ ] plugin/adapter registry with capability introspection
+- [ ] adapter `doctor` checks
+- [ ] explicit stable / beta / dev release channels
+- [ ] upgrade + database migration command
+- [ ] generated configuration reference
+- [ ] documentation site
+- [ ] architecture decision records for major trust-boundary choices
+- [ ] opt-in diagnostics/telemetry design with privacy documentation
+- [ ] reproducible end-to-end acceptance suite
+
+## v1.0 — Stable Open-Source Release
+
+- [ ] freeze public data-contract compatibility policy
+- [ ] supported upgrade path from latest pre-1.0 schema
+- [ ] signed release artifacts
+- [ ] package publishing workflow
+- [ ] complete contributor/security/governance documentation
+- [ ] end-to-end demo from product discovery through evaluation
+- [ ] recovery runbook
+- [ ] performance and resource budgets
+- [ ] external adapter certification checklist
+- [ ] independent security/reliability review
+- [ ] release candidate soak period
+- [ ] stable release only after all mandatory quality gates pass
 
 ## Explicit non-goals
 
 - auto-publishing thousands of interchangeable videos
 - bypassing platform restrictions
-- scraping where a supported API or user export is the proper interface
+- scraping where a supported API or user-owned export is the proper boundary
 - fake reviews or invented product experience
 - guaranteed-income claims
-- hiding score assumptions behind an opaque model
-- hard-coding affiliate commission rates as permanent truth
-- silently turning descriptive trend metrics into forecasts
-- approving unsupported or contradicted claims
-- treating a stale historical approval as permission for production
-- treating LLM output as evidence merely because it cites a claim ID
-- letting a generation model implicitly acquire publishing authority
-- rewriting historical decisions with future outcome data
-- silently promoting a learned scoring change without out-of-sample evaluation
+- opaque scoring assumptions
+- permanent hard-coded commission truth
+- silently turning descriptive trends into forecasts
+- unsupported or contradicted claims
+- stale approval as production permission
+- LLM output as evidence merely because it references a claim ID
+- generation models acquiring implicit publishing authority
+- future outcomes rewriting historical decisions
+- missing reports silently becoming zero outcomes
+- learned policy changes bypassing chronological out-of-sample evaluation
+- automatic policy promotion without explicit human review
