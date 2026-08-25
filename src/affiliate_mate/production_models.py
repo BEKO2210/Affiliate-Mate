@@ -283,7 +283,7 @@ class VideoMetadata:
             raise ValueError("tags must be pre-trimmed")
         if any(not tag for tag in normalized_tags):
             raise ValueError("tags must not contain empty values")
-        if len(set(tag.casefold() for tag in normalized_tags)) != len(normalized_tags):
+        if len({tag.casefold() for tag in normalized_tags}) != len(normalized_tags):
             raise ValueError("tags must not contain duplicates")
 
     def to_dict(self) -> dict[str, object]:
