@@ -209,6 +209,16 @@ affiliate-mate-catalog amazon-search camera \
 
 The catalog command discovers products only. Affiliate-Mate still requires independent research/evidence before a product becomes a shortlist candidate.
 
+## Verification
+
+The v0.3 branch is exercised by the full repository CI matrix on Python 3.11 and 3.12. The current gate verifies:
+
+- Ruff
+- bytecode compilation with `compileall`
+- **78 pytest tests**
+
+No CI test requires live Amazon credentials or performs live catalog requests.
+
 ## Why catalog and scoring remain separate
 
 A dangerous architecture would do this:
