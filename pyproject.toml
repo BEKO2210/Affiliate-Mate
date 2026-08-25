@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "affiliate-mate"
-version = "0.9.0"
+version = "1.0.0"
 description = "Open-source evidence-first affiliate research with auditable production, learning, operations, and product-grade workflows."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,12 +12,18 @@ license = {text = "MIT"}
 authors = [{name = "Affiliate-Mate contributors"}]
 keywords = ["affiliate", "research", "youtube", "automation", "open-source"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
 ]
+
+[project.urls]
+Homepage = "https://beko2210.github.io/Affiliate-Mate/"
+Repository = "https://github.com/BEKO2210/Affiliate-Mate"
+Documentation = "https://github.com/BEKO2210/Affiliate-Mate/tree/main/docs"
+Issues = "https://github.com/BEKO2210/Affiliate-Mate/issues"
 
 [project.scripts]
 affiliate-mate = "affiliate_mate.product_cli:main"
@@ -27,6 +33,7 @@ affiliate-mate-research = "affiliate_mate.research_cli:main"
 affiliate-mate-production = "affiliate_mate.production_cli:main"
 affiliate-mate-learning = "affiliate_mate.learning_cli:main"
 affiliate-mate-ops = "affiliate_mate.ops_cli:main"
+affiliate-mate-release = "affiliate_mate.release_cli:main"
 
 [project.optional-dependencies]
 security = [
