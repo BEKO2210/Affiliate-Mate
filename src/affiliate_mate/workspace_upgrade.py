@@ -14,7 +14,7 @@ from .evidence import SQLiteEvidenceStore
 from .ops_backup import backup_database, inspect_sqlite
 from .ops_config import AppConfig, ConfigError
 from .ops_store import OpsStore
-from .workspace import Workspace, WorkspaceError
+from .workspace import Workspace
 
 UPGRADE_PLAN_SCHEMA_VERSION = "affiliate-mate.upgrade-plan.v1"
 UPGRADE_RESULT_SCHEMA_VERSION = "affiliate-mate.upgrade-result.v1"
