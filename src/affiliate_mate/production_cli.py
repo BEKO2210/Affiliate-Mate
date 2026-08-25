@@ -34,7 +34,7 @@ from .script_compiler import (
 def _load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain one JSON object")
+        raise TypeError(f"{path} must contain one JSON object")
     return value
 
 
@@ -98,11 +98,11 @@ def _artifact_records(
         return ()
     raw = json.loads(spec_path.read_text(encoding="utf-8"))
     if not isinstance(raw, list):
-        raise ValueError("artifact spec must contain a JSON array")
+        raise TypeError("artifact spec must contain a JSON array")
     records = []
     for index, item in enumerate(raw):
         if not isinstance(item, dict):
-            raise ValueError(f"artifact spec item {index} must be an object")
+            raise TypeError(f"artifact spec item {index} must be an object")
         records.append(
             artifact_from_path(
                 Path(str(item["path"])),
