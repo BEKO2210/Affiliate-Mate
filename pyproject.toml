@@ -30,11 +30,11 @@ affiliate-mate-ops = "affiliate_mate.ops_cli:main"
 
 [project.optional-dependencies]
 security = [
-  "cryptography>=43,<47",
+  "cryptography>=50,<51",
 ]
 dev = [
   "build>=1.2",
-  "cryptography>=43,<47",
+  "cryptography>=50,<51",
   "pytest>=8.0",
   "ruff>=0.6",
 ]
