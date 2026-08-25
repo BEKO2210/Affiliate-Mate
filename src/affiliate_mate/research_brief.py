@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 from .analysis import AnalysisResult
 from .research_models import EvidenceStance
-from .research_policy import ResearchCompletenessReport, ResearchPolicy, evaluate_research_completeness
+from .research_policy import (
+    ResearchCompletenessReport,
+    ResearchPolicy,
+    evaluate_research_completeness,
+)
 from .research_store import ResearchWorkspaceStore
 from .review_analysis import ReviewAnalysis
 
