@@ -31,6 +31,30 @@ def test_config_rejects_unknown_keys() -> None:
         )
 
 
+def test_config_rejects_string_that_looks_like_boolean() -> None:
+    with pytest.raises(ConfigError, match="JSON boolean"):
+        AppConfig.from_dict(
+            {
+                "schema_version": "affiliate-mate.config.v1",
+                "database": {},
+                "features": {"live_publishing": "false"},
+                "observability": {},
+            }
+        )
+
+
+def test_config_rejects_non_string_database_path() -> None:
+    with pytest.raises(ConfigError, match="database.path must be a string"):
+        AppConfig.from_dict(
+            {
+                "schema_version": "affiliate-mate.config.v1",
+                "database": {"path": 123},
+                "features": {},
+                "observability": {},
+            }
+        )
+
+
 def test_legacy_config_migrates_explicitly(tmp_path) -> None:
     path = tmp_path / "config.json"
     path.write_text(
