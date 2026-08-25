@@ -13,10 +13,12 @@ jobs:
   build-twice:
     runs-on: ubuntu-latest
     env:
-      SOURCE_DATE_EPOCH: "1767225600"
       PYTHONHASHSEED: "0"
     steps:
       - uses: actions/checkout@v4
+      - name: Establish deterministic build epoch
+        shell: bash
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -24,9 +26,26 @@ jobs:
       - name: Install build tooling
         run: python -m pip install build
       - name: Build first copy
-        run: python -m build --sdist --wheel --outdir dist-a
+        run: python -m build --sdist --wheel --outdir raw-a
       - name: Build second copy
-        run: python -m build --sdist --wheel --outdir dist-b
+        run: python -m build --sdist --wheel --outdir raw-b
+      - name: Normalize release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist-a dist-b
+          for pair in "raw-a:dist-a" "raw-b:dist-b"; do
+            raw="${pair%%:*}"
+            dist="${pair##*:}"
+            wheel="$(find "$raw" -maxdepth 1 -type f -name '*.whl' -print -quit)"
+            sdist="$(find "$raw" -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
+            test -n "$wheel"
+            test -n "$sdist"
+            cp "$wheel" "$dist/$(basename "$wheel")"
+            python scripts/normalize_sdist.py \
+              "$sdist" "$dist/$(basename "$sdist")" \
+              --epoch "$SOURCE_DATE_EPOCH"
+          done
       - name: Compare artifact names and bytes
         shell: bash
         run: |
@@ -37,6 +56,14 @@ jobs:
             cmp "dist-a/$file" "dist-b/$file"
           done < <(cd dist-a && find . -type f -printf '%P\n' | sort)
           sha256sum dist-a/*
+      - name: Validate normalized distributions install
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --no-deps --force-reinstall dist-a/*.whl
+          python -c "import affiliate_mate; print(affiliate_mate.__version__)"
+          python -m pip install --no-deps --force-reinstall dist-a/*.tar.gz
+          python -c "import affiliate_mate; print(affiliate_mate.__version__)"
       - uses: actions/upload-artifact@v4
         with:
           name: reproducible-python-distributions
