@@ -69,7 +69,7 @@ def analyze_trend(points: list[TrendPoint]) -> TrendMetrics:
 
 
 def _parse_timestamp(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(value.strip())
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("trend observed_at must include a timezone")
     return parsed.astimezone(UTC)
