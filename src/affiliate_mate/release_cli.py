@@ -29,7 +29,7 @@ def _time(raw: str) -> datetime:
 def _load_object(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain one JSON object")
+        raise TypeError(f"{path} must contain one JSON object")
     return value
 
 
@@ -64,6 +64,7 @@ def _verify(_args: argparse.Namespace) -> int:
             }
         )
     major = int(__version__.split(".", 1)[0]) if __version__.split(".", 1)[0].isdigit() else -1
+    contract = compatibility_contract()
     checks.extend(
         [
             {
@@ -80,8 +81,8 @@ def _verify(_args: argparse.Namespace) -> int:
             },
             {
                 "code": "compatibility_contract",
-                "passed": compatibility_contract()["stable_major"] == 1,
-                "actual": compatibility_contract()["schema_version"],
+                "passed": contract["stable_major"] == 1,
+                "actual": contract["schema_version"],
                 "expected": "affiliate-mate.compatibility.v1",
             },
         ]
@@ -116,6 +117,16 @@ def _manifest_verify(args: argparse.Namespace) -> int:
     return ExitCode.OK if report["passed"] else ExitCode.CHECK_FAILED
 
 
+def _contract(_args: argparse.Namespace) -> int:
+    _write(compatibility_contract())
+    return ExitCode.OK
+
+
+def _performance_budget(_args: argparse.Namespace) -> int:
+    _write(performance_budget_contract())
+    return ExitCode.OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="affiliate-mate-release",
@@ -124,10 +135,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     contract = sub.add_parser("contract", help="Print the stable v1 compatibility contract.")
-    contract.set_defaults(handler=lambda _args: (_write(compatibility_contract()), ExitCode.OK)[1])
+    contract.set_defaults(handler=_contract)
 
     budget = sub.add_parser("performance-budget", help="Print stable acceptance budgets.")
-    budget.set_defaults(handler=lambda _args: (_write(performance_budget_contract()), ExitCode.OK)[1])
+    budget.set_defaults(handler=_performance_budget)
 
     verify = sub.add_parser("verify", help="Verify that the installed package satisfies v1 stable policy.")
     verify.set_defaults(handler=_verify)
@@ -152,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return int(args.handler(args))
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, TypeError, ValueError) as exc:
         print(f"release error: {exc}", file=sys.stderr)
         return ExitCode.CONFIG_ERROR
 
