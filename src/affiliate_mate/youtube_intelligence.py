@@ -18,7 +18,6 @@ from affiliate_mate.freshness import SignalFreshnessPolicy
 from affiliate_mate.http_client import HttpRequestError, JsonHttpClient, JsonProtocolError
 from affiliate_mate.models import ProductCandidate
 
-
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 _INTENT_TERMS = {
     "review",
