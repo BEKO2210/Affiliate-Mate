@@ -76,33 +76,85 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 
 ## v0.6 — Production Adapters
 
-- [ ] production entry gate consumes effective approval guard, never raw approval state
-- [ ] LLM-neutral script interface
-- [ ] structured script claim references
-- [ ] approved research digest retained in every production asset manifest
-- [ ] TTS adapter interface
-- [ ] video-render adapter interface
-- [ ] thumbnail brief generator
-- [ ] YouTube metadata generator
-- [ ] affiliate disclosure templates
-- [ ] asset manifest + deterministic render inputs
-- [ ] no-publish-without-approval invariant
-- [ ] publishing dry-run plan before any live adapter
+- [x] production entry gate consumes effective approval guard, never raw approval state
+- [x] production authorization bound to approval event + research SHA-256 digest
+- [x] point-of-use production authorization re-check
+- [x] LLM-neutral `ScriptGenerator` interface
+- [x] grounded `ScriptRequest` exports approved claims and source locators only
+- [x] structured factual script segments carry claim IDs
+- [x] deterministic credential-free strict-template generator
+- [x] script-grounding validation against current supported research claims
+- [x] `TTSAdapter` interface
+- [x] `VideoRenderAdapter` interface
+- [x] `ThumbnailAdapter` interface
+- [x] `PublisherAdapter` interface
+- [x] deterministic non-side-effecting TTS/render/thumbnail/publish plans
+- [x] thumbnail brief generator with claim-safe default guidance
+- [x] YouTube-oriented metadata generator
+- [x] German + English affiliate disclosure templates
+- [x] disclosure-presence package invariant
+- [x] content-addressed artifact manifest
+- [x] safe relative artifact-path validation
+- [x] artifact SHA-256 + byte-length integrity validation
+- [x] production package retains approval event + approved research digest
+- [x] deterministic production package SHA-256
+- [x] second human signoff bound to exact production package digest
+- [x] package mutation / stale-signoff detection
+- [x] versioned production authorization/script/package/signoff/publish-plan contracts
+- [x] strict production JSON deserialization
+- [x] fail-closed publishing dry-run
+- [x] strict dry-run rejects side-effecting publisher plans
+- [x] no live publisher included in v0.6
+- [x] dedicated `affiliate-mate-production` CLI
+- [x] production trust-boundary and threat-model documentation
 
 ## v0.7 — Learning Loop
 
-- [ ] import video analytics
-- [ ] import affiliate conversion reports
-- [ ] calibrate CTR and conversion assumptions
-- [ ] compare predicted vs realized performance
-- [ ] backtest scoring changes before adoption
-- [ ] calibration drift report
+- [ ] provider-neutral realized-outcome event model
+- [ ] import YouTube/video analytics snapshots
+- [ ] import affiliate click/conversion/revenue reports
+- [ ] normalize refunds, reversals, and delayed attribution
+- [ ] preserve observation time, ingestion time, source, and reporting window
+- [ ] join outcomes to product/video/production-package lineage without lossy title matching
+- [ ] predicted-vs-realized performance report
+- [ ] CTR calibration by marketplace/category/price band
+- [ ] conversion-rate calibration by marketplace/category/price band
+- [ ] commission/revenue realization calibration
+- [ ] confidence intervals and minimum-sample safeguards
+- [ ] calibration drift detection
+- [ ] cohort stability report
+- [ ] scoring-policy version registry
+- [ ] backtest candidate scoring changes before adoption
+- [ ] walk-forward evaluation for scoring-policy changes
+- [ ] explicit train/evaluation time split
+- [ ] target-leakage / future-data guards
+- [ ] historical replays retain the policy version known at decision time
+- [ ] no automatic model/policy promotion without evaluation gates
+- [ ] learning-loop CLI and versioned machine-readable reports
+
+## v0.8 — Operational Hardening
+
+- [ ] asymmetric signatures for release/production manifests
+- [ ] configurable secrets-provider interface
+- [ ] resumable/idempotent external jobs
+- [ ] external-call idempotency keys
+- [ ] crash-safe production checkpoints
+- [ ] structured event/audit logging
+- [ ] OpenTelemetry-compatible observability boundary
+- [ ] backup/restore validation for evidence and research stores
+- [ ] deterministic release builds
+- [ ] SBOM generation
+- [ ] dependency vulnerability gate
+- [ ] branch protection / release policy documentation
+- [ ] future live publisher behind an explicit opt-in feature flag
+- [ ] live publisher re-checks production authorization and package signoff immediately before side effects
+- [ ] live publisher never receives LLM/model credentials by default
 
 ## Explicit non-goals
 
 - auto-publishing thousands of interchangeable videos
 - bypassing platform restrictions
-- scraping where an official API or user export is the proper interface
+- scraping where a supported API or user export is the proper interface
 - fake reviews or invented product experience
 - guaranteed-income claims
 - hiding score assumptions behind an opaque model
@@ -110,3 +162,7 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 - silently turning descriptive trend metrics into forecasts
 - approving unsupported or contradicted claims
 - treating a stale historical approval as permission for production
+- treating LLM output as evidence merely because it cites a claim ID
+- letting a generation model implicitly acquire publishing authority
+- rewriting historical decisions with future outcome data
+- silently promoting a learned scoring change without out-of-sample evaluation

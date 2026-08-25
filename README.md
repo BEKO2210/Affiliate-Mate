@@ -1,82 +1,110 @@
 # Affiliate-Mate
 
-**Open-source, evidence-first affiliate opportunity research with an audited human approval boundary.**
+**Open-source, evidence-first affiliate research and production planning with auditable approval boundaries.**
 
-Affiliate-Mate does not start by generating a video. It starts with a harder question:
+Affiliate-Mate is built around one rule:
 
-> **Which products have enough verifiable economics, demand, market opportunity, and claim-level research to justify publishing anything at all?**
+> **Automation may collect, rank, draft, and plan. It may not silently turn weak evidence into a product claim or turn an old approval into permission to publish.**
 
-The project is provider-neutral and local-first. Catalog discovery, market intelligence, evidence history, opportunity decisions, editorial research, and future production adapters are deliberately separate layers.
+The project separates catalog discovery, market intelligence, opportunity scoring, editorial research, approval, and production so no marketplace, data vendor, LLM, renderer, or publisher becomes the trust root.
 
 ## What Affiliate-Mate is not
 
-Affiliate-Mate is not a "two prompts = passive income" generator, an Amazon scraper, a YouTube scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience, keyword volume, commission rates, claims, or citations.
+Affiliate-Mate is not a "two prompts = passive income" generator, a storefront scraper, a YouTube HTML scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience, keyword volume, commission rates, product claims, citations, or human approval.
 
-Most workflows work without an LLM or cloud account. Live Amazon and YouTube access is optional.
+Most workflows run locally without an LLM or paid cloud account. Live Amazon and YouTube research access remain optional adapters.
 
-## Current status — v0.5 Research Workspace
+## Current status — v0.6 Production Adapters
 
-v0.5 adds the boundary that should exist before any script, voice, or video generation:
+v0.6 connects the audited v0.5 research package to production planning while preserving a fail-closed trust chain:
 
-- append-oriented SQLite research workspace
-- explicit source provenance records
-- claim/evidence ledger
-- evidence stance: `supports`, `contradicts`, `context`
-- append-only claim state audit history
-- optimistic expected-state conflict protection
-- citation-ready notes linked to claims
-- fail-closed research completeness policy
-- stronger independent-source requirements for high-risk claims
-- contradictory-evidence approval blocker
-- append-only human product approval history
-- deterministic user-supplied review deduplication and clustering
-- versioned Markdown/JSON product research briefs
-- fourth CLI: `affiliate-mate-research`
+- production authorization derived from the effective research approval guard
+- authorization bound to an approval event and research SHA-256 digest
+- point-of-use stale-approval rechecks
+- LLM-neutral structured script interface
+- factual script segments linked to approved claim IDs
+- credential-free strict template generator for deterministic development
+- provider-neutral TTS, video-render, thumbnail, and publisher protocols
+- non-side-effecting dry-run adapters
+- explicit German and English affiliate-disclosure templates
+- deterministic video metadata and thumbnail briefs
+- content-addressed artifact manifests
+- artifact path and byte-integrity validation
+- production package SHA-256 digest
+- second human signoff bound to the exact production package
+- strict versioned production JSON contracts
+- fail-closed publishing dry-run
+- fifth CLI: `affiliate-mate-production`
+
+**v0.6 intentionally ships no live publishing adapter.** Passing a publish dry-run means the local preconditions are satisfied; it is not a network side effect.
 
 Previous milestones remain intact:
 
 - **v0.1** — transparent opportunity score
 - **v0.2** — evidence store, hard gates, sensitivity, automation JSON
 - **v0.3** — Amazon Creators API catalog integration, commission schedules, bounded HTTP
-- **v0.4** — YouTube/keyword/trend market intelligence, freshness, budgets, replay, clustering
-
-Affiliate-Mate still performs **no storefront/YouTube HTML scraping, no automatic posting, no LLM content generation, and no invented economics or product claims**.
+- **v0.4** — YouTube/keyword/trend intelligence, freshness, budgets, replay, clustering
+- **v0.5** — claim/evidence ledger, research completeness, approval snapshots, stale-approval protection
 
 ## Architecture
 
 ```text
- Catalog providers                Market evidence providers
- /      |       \                /      |       |       \
-mock  Amazon   future         keyword  YouTube  trend   replay
- \      |       /                \      |       |       /
-     CatalogItem                  EvidenceObservation
-          |                              |
-   commission schedule             SQLite evidence history
-          |                    provenance + time + expiry
-          +---------------+--------------+
-                          v
-                   ProductCandidate
-                          |
-                 point-in-time resolution
-                          |
-                    required hard gates
-                          |
-               transparent score + sensitivity
-                          |
-                       shortlist
-                          |
-                 Research Workspace
-             sources + claims + citations
-             notes + review themes + audit
-                          |
-              fail-closed approval gates
-                          |
-                    HUMAN APPROVAL
-                          |
-                future v0.6 production
+Catalogs + market sources
+          |
+          v
+ Evidence Engine
+ provenance + time + expiry
+          |
+          v
+ Opportunity Engine
+ hard gates + score + sensitivity
+          |
+          v
+      SHORTLIST
+          |
+          v
+ Research Workspace
+ sources + claims + citations + notes
+          |
+          v
+ Research completeness
+          |
+          v
+    HUMAN APPROVAL
+          |
+          v
+ Research snapshot SHA-256
+          |
+          v
+ ProductionAuthorization
+ approval event + research digest
+          |
+          v
+ Grounded ScriptRequest
+ approved claims + source locators
+          |
+          v
+ Structured ScriptDocument
+ FACT segment -> claim IDs
+          |
+          v
+ TTS / render / thumbnail plans
+          |
+          v
+ ProductionPackage SHA-256
+ metadata + disclosure + asset manifest
+          |
+          v
+ HUMAN PRODUCTION SIGNOFF
+          |
+          v
+    Publish dry-run
+          |
+          v
+ future live publisher
 ```
 
-A provider can acquire evidence. It cannot declare a product profitable, mark a product claim true, approve publication, or bypass the decision engine.
+A later production stage cannot make an earlier approval valid again. If research changes, the research digest changes and production authorization becomes stale. If the production package changes, its package digest changes and the previous production signoff becomes stale.
 
 ## Quick start
 
@@ -88,256 +116,214 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
 ```
 
-The package installs four CLIs:
+The package installs five CLIs:
 
 ```text
-affiliate-mate           evidence + opportunity decision engine
-affiliate-mate-catalog   catalog discovery + commission tools
-affiliate-mate-intel     market intelligence + replay + clustering
-affiliate-mate-research  claims + citations + briefs + human approval
+affiliate-mate             evidence + opportunity decision engine
+affiliate-mate-catalog     catalog discovery + commission tools
+affiliate-mate-intel       market intelligence + replay + clustering
+affiliate-mate-research    claims + citations + briefs + human approval
+affiliate-mate-production  grounded production planning + publish dry-run
 ```
 
-## 1. Collect market evidence
+## v0.6 production workflow
 
-A fully credential-free example:
+### 1. Verify production authorization
 
-```bash
-affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
-  --keyword-csv sample_data/keyword_demand.example.csv \
-  --trend-csv sample_data/trend_series.example.csv \
-  --replay sample_data/market_replay.example.json \
-  --format json
-```
-
-The repository fixtures are development data, not current market claims.
-
-Analyze candidates with the persisted evidence:
+A raw `APPROVED` value is not enough. This command requires the research package to remain complete and to match the SHA-256 snapshot bound to the latest approval event:
 
 ```bash
-affiliate-mate analyze sample_data/products.csv \
-  --evidence-db affiliate-mate.sqlite3 \
-  --min-evidence-confidence 0.5 \
-  --include-rejected
-```
-
-## 2. Open a research workspace
-
-The research tables can live in the same SQLite file as market evidence because they use an independent schema namespace:
-
-```bash
-affiliate-mate-research init affiliate-mate.sqlite3
-```
-
-Add a source:
-
-```bash
-affiliate-mate-research source-add affiliate-mate.sqlite3 demo-headphones-1 \
-  --source-id manufacturer-spec \
-  --kind manufacturer \
-  --title "Manufacturer specifications" \
-  --locator "https://example.invalid/spec" \
-  --publisher "Example Manufacturer"
-```
-
-Add a claim. Creating it does **not** make it supported:
-
-```bash
-affiliate-mate-research claim-add affiliate-mate.sqlite3 demo-headphones-1 \
-  "The cable is detachable." \
-  --claim-id detachable-cable \
-  --risk medium \
-  --actor editor@example
-```
-
-Link the claim to a precise source location:
-
-```bash
-affiliate-mate-research claim-link affiliate-mate.sqlite3 \
-  detachable-cable manufacturer-spec \
-  --stance supports \
-  --locator "Specifications > Cable" \
-  --actor editor@example
-```
-
-After a human checks the evidence, append a state transition:
-
-```bash
-affiliate-mate-research claim-state affiliate-mate.sqlite3 detachable-cable supported \
-  --expected-state draft \
-  --actor reviewer@example \
-  --reason "Specification checked against the cited source."
-```
-
-Add a citation-ready note linked to the claim:
-
-```bash
-affiliate-mate-research note-add affiliate-mate.sqlite3 demo-headphones-1 \
-  "Cable evidence" \
-  "The detachable-cable claim is supported by the manufacturer specification." \
-  --claim-id detachable-cable \
-  --actor editor@example
-```
-
-Inspect the complete audit state:
-
-```bash
-affiliate-mate-research status affiliate-mate.sqlite3 demo-headphones-1
-```
-
-## 3. Human approval is fail-closed
-
-Start review:
-
-```bash
-affiliate-mate-research approval affiliate-mate.sqlite3 demo-headphones-1 in_review \
-  --expected-state draft \
-  --actor reviewer@example \
-  --reason "Research package ready for review."
-```
-
-Approval is refused until all configured research gates pass:
-
-```bash
-affiliate-mate-research approval affiliate-mate.sqlite3 demo-headphones-1 approved \
-  --expected-state in_review \
-  --actor reviewer@example \
-  --reason "Claims, evidence links, notes, and source diversity verified."
-```
-
-Default completeness requires:
-
-| Research gate | Default |
-|---|---:|
-| sources | >= 2 |
-| distinct publishers | >= 2 |
-| active claims | >= 1 |
-| research notes | >= 1 |
-| state of every active claim | `supported` |
-| support sources / ordinary claim | >= 1 |
-| support sources / high-risk claim | >= 2 |
-| distinct publishers / high-risk claim | >= 2 |
-| every active claim covered by a note | required |
-| contradictory evidence on supported claims | none |
-
-Rejected claims remain in the audit trail but are excluded from active completeness.
-
-## 4. User-supplied review analysis
-
-Affiliate-Mate can triage a user-owned or properly licensed review export without scraping a review site:
-
-```bash
-affiliate-mate-research reviews \
-  sample_data/reviews.example.csv \
-  demo-headphones-1 DE
-```
-
-The deterministic baseline:
-
-1. filters product + marketplace strictly,
-2. fingerprints normalized text,
-3. counts exact duplicate copies,
-4. removes duplicate copies before thematic clustering,
-5. clusters by explainable token overlap,
-6. derives common terms,
-7. uses the supplied rating for coarse positive/mixed/negative orientation.
-
-The result is an editorial aid, not a claim that a heuristic cluster represents semantic truth.
-
-## 5. Build a citation-ready product brief
-
-Markdown:
-
-```bash
-affiliate-mate-research brief \
-  sample_data/products.csv \
-  demo-headphones-1 \
+affiliate-mate-production authorize \
   affiliate-mate.sqlite3 \
-  --evidence-db affiliate-mate.sqlite3 \
-  --reviews-csv sample_data/reviews.example.csv \
-  --output research-brief.md
+  demo-headphones-1
 ```
 
-Versioned JSON:
-
-```bash
-affiliate-mate-research brief \
-  sample_data/products.csv \
-  demo-headphones-1 \
-  affiliate-mate.sqlite3 \
-  --format json > research-brief.json
-```
-
-The machine-readable contract is:
+The versioned authorization contains:
 
 ```text
-affiliate-mate.research-brief.v1
+product_id
+approval_event_id
+research_digest
+created_at
 ```
 
-The brief contains current candidate values, decision gates, sensitivity analysis, evidence resolution, research completeness, claims, evidence links, notes, optional review themes, approval state, and deterministic source references (`S1`, `S2`, ...).
+### 2. Export an LLM-neutral grounded script request
 
-It does not create new product claims.
+```bash
+affiliate-mate-production script-request \
+  affiliate-mate.sqlite3 \
+  demo-headphones-1 \
+  --title "Example Headphones" \
+  --language de \
+  --locale de-DE \
+  --output script-request.json
+```
+
+The request contains only currently supported claims and their source locators. It explicitly instructs a future generator not to invent first-hand experience, specifications, rankings, prices, guarantees, or comparisons.
+
+### 3. Generate the deterministic baseline script
+
+```bash
+affiliate-mate-production script-template \
+  affiliate-mate.sqlite3 \
+  demo-headphones-1 \
+  --title "Example Headphones" \
+  --language de \
+  --locale de-DE \
+  --output script.json
+```
+
+`StrictTemplateScriptGenerator` deliberately reuses approved claim text. It is a safe development baseline, not a polished creative writer.
+
+Every factual segment has explicit claim lineage:
+
+```json
+{
+  "kind": "fact",
+  "text": "The cable is detachable.",
+  "claim_ids": ["detachable-cable"]
+}
+```
+
+A future LLM adapter must return the same structured contract and pass grounding validation before rendering.
+
+### 4. Build the production package
+
+```bash
+affiliate-mate-production package \
+  affiliate-mate.sqlite3 \
+  demo-headphones-1 \
+  script.json \
+  --title "Example Headphones" \
+  --affiliate-url "https://example.invalid/affiliate" \
+  --locale de-DE \
+  --output production-package.json
+```
+
+The package contains research lineage, script, metadata, disclosure, thumbnail brief, adapter plans, and optional content-addressed artifact records.
+
+For rendered artifacts, the manifest records:
+
+```text
+logical name
+artifact kind
+safe relative path
+media type
+SHA-256
+byte length
+```
+
+### 5. Human-sign the exact production package
+
+Research approval and final production review are separate checkpoints:
+
+```bash
+affiliate-mate-production signoff \
+  production-package.json \
+  --actor editor@example \
+  --reason "Final script, metadata, disclosure, thumbnail brief, and assets reviewed." \
+  --output production-signoff.json
+```
+
+The signoff is bound to the exact package SHA-256. Editing the script, metadata, thumbnail instructions, manifest, adapter plans, or research lineage invalidates the old signoff.
+
+### 6. Run the non-side-effecting publish gate
+
+```bash
+affiliate-mate-production publish-dry-run \
+  affiliate-mate.sqlite3 \
+  demo-headphones-1 \
+  production-package.json \
+  --signoff production-signoff.json \
+  --artifact-root ./render-output \
+  --output publish-plan.json
+```
+
+The strict dry-run checks:
+
+- current approved research snapshot
+- production authorization lineage
+- structured script grounding
+- exact package human signoff
+- affiliate disclosure in metadata
+- required artifact kinds
+- artifact SHA-256 and byte length
+- a non-side-effecting publisher plan
+
+For pipeline development before rendered artifacts exist, `--allow-missing-artifacts` skips only artifact presence/integrity. It is not intended as a future live-publish precondition.
+
+## Production contracts
+
+v0.6 defines explicit versioned boundaries:
+
+```text
+affiliate-mate.production-authorization.v1
+affiliate-mate.script.v1
+affiliate-mate.production-package.v1
+affiliate-mate.production-signoff.v1
+affiliate-mate.publish-plan.v1
+```
+
+Deserializers reject unknown versions rather than guessing compatibility.
+
+## Production adapters
+
+Provider-neutral protocols:
+
+```text
+ScriptGenerator
+TTSAdapter
+VideoRenderAdapter
+ThumbnailAdapter
+PublisherAdapter
+```
+
+Bundled v0.6 adapters are deterministic plans only:
+
+```text
+strict-template-v1
+dry-run-tts-v1
+dry-run-video-v1
+dry-run-thumbnail-v1
+dry-run-youtube-v1
+```
+
+They allow the entire production trust chain to be tested without handing an LLM or renderer publishing credentials.
+
+See [`docs/PRODUCTION_ADAPTERS.md`](docs/PRODUCTION_ADAPTERS.md).
+
+## Affiliate disclosures
+
+German and English templates are convenience defaults, not jurisdiction-specific legal advice. The selected description disclosure is required to appear in final metadata. Users remain responsible for affiliate-program terms and applicable disclosure requirements.
+
+## Research approval integrity
+
+v0.5 remains the trust root for product claims. A product is production-ready only when all of these are true:
+
+```text
+raw approval == APPROVED
+research completeness == PASS
+approval snapshot exists
+approval snapshot == current research digest
+```
+
+See [`docs/APPROVAL_INTEGRITY.md`](docs/APPROVAL_INTEGRITY.md).
 
 ## Market intelligence
 
-Affiliate-Mate uses the supported YouTube Data API v3 rather than YouTube HTML scraping. Configure live access only through the environment:
-
-```bash
-export YOUTUBE_API_KEY="..."
-
-affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
-  --youtube \
-  --youtube-language de \
-  --youtube-max-results 25 \
-  --youtube-max-collections 10
-```
-
-Competition and content-gap scores are deterministic heuristics over sampled results and their ingredients are stored in observation metadata. Collection budgets are explicit and bounded.
-
-Keyword demand/buyer intent and trend/seasonality can be supplied through user-owned or licensed exports. Missing values are not fabricated.
+Affiliate-Mate uses supported APIs or user-owned/licensed exports rather than storefront or YouTube HTML scraping. Market evidence preserves source, timestamp, confidence, expiry, and history. Missing demand or buyer intent is not fabricated.
 
 See [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md).
 
 ## Catalog discovery
 
-Credential-free mock search:
-
-```bash
-affiliate-mate-catalog mock-search camera --marketplace DE --format json
-```
-
-Live Amazon catalog access targets Amazon Creators API and reads credentials only from environment variables:
-
-```bash
-export AMAZON_CREATORS_CREDENTIAL_ID="..."
-export AMAZON_CREATORS_CREDENTIAL_SECRET="..."
-export AMAZON_CREATORS_CREDENTIAL_VERSION="3.2"
-export AMAZON_ASSOCIATE_TAG="..."
-
-affiliate-mate-catalog amazon-search camera --marketplace DE --limit 10
-```
-
-Affiliate-Mate does not hard-code permanent Amazon commission rates. Commission schedules are explicit user data.
+Affiliate-Mate has a provider-neutral catalog layer, a deterministic mock provider, and an Amazon Creators API adapter. Commission schedules are explicit user data rather than permanent hard-coded percentages.
 
 See [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md).
 
-## Evidence and decision engine
+## Opportunity scoring
 
-```bash
-affiliate-mate score sample_data/products.csv --top 10
-
-affiliate-mate analyze sample_data/products.csv \
-  --evidence-db affiliate-mate.sqlite3 \
-  --include-rejected \
-  --format json
-```
-
-The decision automation contract remains:
-
-```text
-affiliate-mate.analysis.v1
-```
-
-The default opportunity score remains transparent:
+The opportunity score remains transparent:
 
 | Component | Weight |
 |---|---:|
@@ -348,49 +334,52 @@ The default opportunity score remains transparent:
 | Content gap | 10% |
 | Evidence quality | 5% |
 
-Base estimated affiliate value per 1,000 views:
+Estimated affiliate value per 1,000 views is assumption-driven:
 
 ```text
 1000 × estimated CTR × estimated conversion rate × commission per sale
 ```
 
-That is an assumption-driven estimate, not a revenue promise. Sensitivity analysis exposes the effect of weaker/stronger CTR and conversion assumptions.
+Sensitivity analysis exposes how the result changes under weaker and stronger CTR/conversion assumptions. It is not a revenue promise.
 
 ## Product principles
 
-1. **Evidence before generation.** Research first, content second.
-2. **Fail closed on critical ambiguity.** Missing evidence must not become fake confidence.
-3. **Provider-neutral core.** Marketplaces and platforms are adapters, not the architecture.
-4. **Catalog facts are not market intelligence.** Discovery and judgment remain separate.
-5. **A source is not automatically proof.** Claims require explicit evidence links and human state transitions.
-6. **Contradictions are first-class data.** Do not hide them to improve a score or brief.
-7. **High-risk claims require stronger source diversity.**
-8. **Human approval is an auditable state machine, not a boolean shortcut.**
-9. **Time and provenance survive normalization.** Market evidence expires.
-10. **Prefer supported APIs and user-owned exports over brittle scraping.**
-11. **No permanent hard-coded commission truth.**
-12. **Retries and external-call budgets are bounded.**
-13. **Original content over mass production.** Repetitive template spam is a non-goal.
-14. **Every revenue estimate exposes its assumptions.**
+1. **Evidence before generation.** Research first, production later.
+2. **Fail closed on critical ambiguity.** Missing evidence is not confidence.
+3. **A source is not automatically proof.** Claims need explicit evidence links and review state.
+4. **Contradictions are first-class data.** Do not hide them to improve output.
+5. **Approval is revision-specific.** A changed research package needs review again.
+6. **Production authorization is temporary.** Re-check it at the point of use.
+7. **Factual generated content carries claim lineage.**
+8. **Research approval and production signoff are separate human checkpoints.**
+9. **Artifacts are content-addressed.** Replaced bytes must be detectable.
+10. **LLMs and renderers are adapters, not authorities.**
+11. **No implicit publishing authority.** Planning and external side effects stay separate.
+12. **Original content over mass production.** Repetitive template spam is a non-goal.
+13. **Every revenue estimate exposes its assumptions.**
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system boundaries
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — trust boundaries and system design
 - [`docs/EVIDENCE_ENGINE.md`](docs/EVIDENCE_ENGINE.md) — evidence invariants and storage
 - [`docs/DECISION_POLICY.md`](docs/DECISION_POLICY.md) — opportunity hard gates
 - [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md) — analysis JSON contract
 - [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) — catalog/OAuth contracts
 - [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) — market signals and collectors
-- [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — v0.5 claims, citations, review analysis, and approval
+- [`docs/RESEARCH_WORKSPACE.md`](docs/RESEARCH_WORKSPACE.md) — claims, citations, reviews, approval
+- [`docs/APPROVAL_INTEGRITY.md`](docs/APPROVAL_INTEGRITY.md) — research revision binding
+- [`docs/PRODUCTION_ADAPTERS.md`](docs/PRODUCTION_ADAPTERS.md) — v0.6 production trust chain
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones
 
 ## Next milestone
 
-**v0.6 — Production Adapters** can add LLM-neutral script, TTS, render, thumbnail, metadata, and disclosure interfaces. The critical invariant will be: **production may consume only an explicitly approved research package, and live publishing can never bypass that approval boundary.**
+**v0.7 — Learning Loop** will import realized channel and affiliate outcomes, compare forecasts with results, calibrate assumptions, detect drift, and backtest scoring changes before they can affect future ranking.
+
+The learning layer must preserve historical versions and avoid target leakage: future conversion data must never rewrite what an earlier point-in-time decision supposedly knew.
 
 ## Responsible use
 
-Users are responsible for affiliate disclosures, program terms, API/data licenses, product-claim accuracy, and rights to published media. Affiliate-Mate does not guarantee traffic, conversions, commissions, or income.
+Users are responsible for affiliate disclosures, program terms, API/data licenses, product-claim accuracy, media rights, generated-content review, and platform rules. Affiliate-Mate does not guarantee traffic, conversions, commissions, monetization, or income.
 
 ## License
 
