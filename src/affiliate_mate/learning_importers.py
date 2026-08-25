@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from .learning_models import OutcomeEvent, OutcomeKind
 
@@ -19,7 +19,7 @@ def _parse_time(raw: str, field_name: str) -> datetime:
     if not value:
         raise OutcomeImportError(f"{field_name} must not be empty")
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError as exc:
         raise OutcomeImportError(f"{field_name} is not a valid ISO-8601 timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
