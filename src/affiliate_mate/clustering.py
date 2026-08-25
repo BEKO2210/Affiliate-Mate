@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 
-from .models import ProductCandidate
+from affiliate_mate.models import ProductCandidate
 
 
 _TOKEN_RE = re.compile(r"\w+", flags=re.UNICODE)
