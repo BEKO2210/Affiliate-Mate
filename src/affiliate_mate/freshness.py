@@ -6,7 +6,6 @@ from datetime import timedelta
 
 from affiliate_mate.evidence import EvidenceObservation
 
-
 _DEFAULT_TTLS = {
     "price": timedelta(days=1),
     "commission_rate": timedelta(days=7),
