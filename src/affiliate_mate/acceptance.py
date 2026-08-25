@@ -318,7 +318,9 @@ def run_golden_acceptance(root: str | Path) -> dict[str, object]:
         )
         if not learning_store.add_forecast(forecast):
             raise RuntimeError("golden forecast was not inserted")
-        effective_at = predicted_at + timedelta(days=2)
+        # Outcome selection uses a half-open forecast window: [predicted_at, horizon_end).
+        # Keep realized events strictly inside that window rather than on its exclusive endpoint.
+        effective_at = predicted_at + timedelta(days=1)
         observed_at = effective_at + timedelta(days=1)
         learning_store.add_outcomes(
             (
