@@ -195,7 +195,7 @@ def analyze_reviews(
     for review in selected:
         fingerprint_groups.setdefault(review_fingerprint(review), []).append(review)
     unique = [
-        sorted(group, key=lambda review: review.review_id)[0]
+        min(group, key=lambda review: review.review_id)
         for group in fingerprint_groups.values()
     ]
     unique.sort(key=lambda review: review.review_id)
