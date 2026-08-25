@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .production_adapters import DryRunTTSAdapter, DryRunThumbnailAdapter, DryRunVideoRenderAdapter
+from .production_adapters import DryRunThumbnailAdapter, DryRunTTSAdapter, DryRunVideoRenderAdapter
 from .production_models import (
     AdapterExecutionPlan,
     DisclosureBundle,
