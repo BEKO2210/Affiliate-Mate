@@ -26,6 +26,7 @@ from .research_models import (
 )
 from .research_policy import (
     ResearchApprovalBlocked,
+    evaluate_approval_guard,
     evaluate_research_completeness,
     transition_product_approval,
 )
@@ -147,8 +148,11 @@ def _note_add(args: argparse.Namespace) -> int:
 def _status(args: argparse.Namespace) -> int:
     with ResearchWorkspaceStore(args.database) as store:
         report = evaluate_research_completeness(store, args.product_id)
+        guard = evaluate_approval_guard(store, args.product_id)
         payload = {
-            "approval_state": store.current_approval_state(args.product_id).value,
+            "approval_state": guard.raw_state.value,
+            "production_ready": guard.passed,
+            "approval_guard": guard.to_dict(),
             "completeness": report.to_dict(),
             "sources": [source.to_dict() for source in store.list_sources(args.product_id)],
             "claims": [
@@ -179,10 +183,21 @@ def _approval(args: argparse.Namespace) -> int:
                 reason=args.reason,
                 expected_state=expected,
             )
+            guard = evaluate_approval_guard(store, args.product_id)
     except ResearchApprovalBlocked as exc:
         print(json.dumps(exc.report.to_dict(), indent=2, sort_keys=True))
         return 2
-    print(json.dumps(event.to_dict(), indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "event": event.to_dict(),
+                "production_ready": guard.passed,
+                "approval_guard": guard.to_dict(),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -224,7 +239,11 @@ def _brief(args: argparse.Namespace) -> int:
         if evidence_store is not None:
             evidence_store.close()
 
-    output = json.dumps(brief.to_dict(), indent=2, sort_keys=True) if args.format == "json" else brief.markdown
+    output = (
+        json.dumps(brief.to_dict(), indent=2, sort_keys=True)
+        if args.format == "json"
+        else brief.markdown
+    )
     if args.output is not None:
         args.output.write_text(output + "\n", encoding="utf-8")
     else:
@@ -294,7 +313,7 @@ def build_parser() -> argparse.ArgumentParser:
     note.add_argument("--actor", required=True)
     note.set_defaults(handler=_note_add)
 
-    status = subparsers.add_parser("status", help="Show research completeness and audit state as JSON.")
+    status = subparsers.add_parser("status", help="Show completeness and production readiness as JSON.")
     status.add_argument("database", type=Path)
     status.add_argument("product_id")
     status.set_defaults(handler=_status)
@@ -331,9 +350,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if getattr(args, "min_evidence_confidence", 0.0) not in [
-        value for value in [getattr(args, "min_evidence_confidence", 0.0)] if 0 <= value <= 1
-    ]:
+    confidence = getattr(args, "min_evidence_confidence", 0.0)
+    if not 0 <= confidence <= 1:
         raise SystemExit("--min-evidence-confidence must be between 0 and 1")
     if hasattr(args, "threshold") and not 0 <= args.threshold <= 1:
         raise SystemExit("--threshold must be between 0 and 1")
