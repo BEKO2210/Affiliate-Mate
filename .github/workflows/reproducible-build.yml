@@ -1,0 +1,44 @@
+name: Reproducible Build
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-twice:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_DATE_EPOCH: "1767225600"
+      PYTHONHASHSEED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install build tooling
+        run: python -m pip install build
+      - name: Build first copy
+        run: python -m build --sdist --wheel --outdir dist-a
+      - name: Build second copy
+        run: python -m build --sdist --wheel --outdir dist-b
+      - name: Compare artifact names and bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          diff -u <(cd dist-a && find . -type f -printf '%P\n' | sort) \
+                  <(cd dist-b && find . -type f -printf '%P\n' | sort)
+          while IFS= read -r file; do
+            cmp "dist-a/$file" "dist-b/$file"
+          done < <(cd dist-a && find . -type f -printf '%P\n' | sort)
+          sha256sum dist-a/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reproducible-python-distributions
+          path: dist-a/*
+          if-no-files-found: error
