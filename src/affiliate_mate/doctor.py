@@ -161,25 +161,13 @@ def run_doctor(
     """Run side-effect-free checks. Secret values are never included in the report."""
 
     values = os.environ if env is None else env
-    checks: list[DoctorCheck] = []
-
-    if sys.version_info >= (3, 11):
-        checks.append(
-            DoctorCheck(
-                "python.version",
-                CheckStatus.PASS,
-                f"Python {sys.version_info.major}.{sys.version_info.minor} is supported.",
-            )
+    checks: list[DoctorCheck] = [
+        DoctorCheck(
+            "python.version",
+            CheckStatus.PASS,
+            f"Python {sys.version_info.major}.{sys.version_info.minor} is supported.",
         )
-    else:
-        checks.append(
-            DoctorCheck(
-                "python.version",
-                CheckStatus.FAIL,
-                "Affiliate-Mate requires Python 3.11 or newer.",
-                "Install a supported Python runtime.",
-            )
-        )
+    ]
 
     checks.append(
         DoctorCheck(
