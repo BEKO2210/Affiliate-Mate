@@ -166,7 +166,7 @@ def test_add_outcomes_rolls_back_entire_batch_on_conflict(tmp_path) -> None:
 
 
 def test_time_bounded_queries_reject_naive_timestamps(tmp_path) -> None:
-    naive = datetime(2026, 1, 1)
+    naive = dt(1).replace(tzinfo=None)
     with LearningStore(tmp_path / "learning.sqlite3") as store:
         with pytest.raises(ValueError, match="timezone-aware"):
             store.list_forecasts(start=naive)
