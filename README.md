@@ -4,154 +4,252 @@
 
 Affiliate-Mate does not start by generating a video. It starts by asking a harder question:
 
-> **Which products have enough verifiable economics, demand, and content opportunity to justify deeper research?**
+> **Which products have enough verifiable economics, demand, competition, and content opportunity to justify deeper research?**
 
-The project is provider-neutral and local-first. It combines catalog discovery, provenance-aware evidence storage, fail-closed rejection gates, transparent scoring, sensitivity analysis, and stable JSON output for automation.
+The project is provider-neutral and local-first. Catalog discovery, market intelligence, evidence history, decision gates, scoring, and later content production are deliberately separate layers.
 
 ## What Affiliate-Mate is not
 
-Affiliate-Mate is not a "two prompts = passive income" generator, an Amazon scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience.
+Affiliate-Mate is not a "two prompts = passive income" generator, an Amazon scraper, a YouTube scraper, or an auto-publishing spam bot. It makes no income guarantee and does not invent product experience, keyword volume, or commission rates.
 
-The analysis core and mock catalog work without an LLM, cloud account, or affiliate-network credential.
+Most of the project works without an LLM or cloud account. Live Amazon and YouTube integrations are optional adapters.
 
-## Current status — v0.3 Catalog Integrations
+## Current status — v0.4 Market Intelligence
 
-v0.3 adds a strict acquisition boundary on top of the v0.2 Evidence Engine:
+v0.4 fills the research boundary that catalog data alone cannot answer:
 
-- provider-neutral `CatalogItem` and `CatalogSearchProvider`
-- Amazon Creators API adapter
-- OAuth client-credentials token cache with expiry skew
-- one bounded authorization refresh on HTTP 401
-- marketplace/domain/currency validation
-- `SearchItems` and `GetItems` support
-- dependency-free JSON HTTP transport
-- explicit retry policy for transient HTTP/rate-limit failures
-- numeric `Retry-After` handling
-- structured transport/API/protocol errors
-- explicit user-supplied commission schedules
-- deterministic credential-free mock catalog
-- separate `affiliate-mate-catalog` CLI
-- adapter contract tests that require no live Amazon credentials
+- supported YouTube Data API v3 competition collector
+- deterministic, inspectable competition and content-gap scoring
+- user-owned/licensed keyword-demand CSV adapter
+- explicit buyer-intent evidence
+- trend + seasonality metrics from time-series exports
+- signal-specific evidence freshness/TTL rules
+- source-level API call budgets
+- provider collection health reports
+- deterministic JSON replay fixtures
+- near-duplicate product clustering before expensive collection
+- third CLI: `affiliate-mate-intel`
 
-Current CI verification: **78 tests pass** on both Python 3.11 and 3.12, with Ruff and bytecode compilation also passing.
+Previous milestones remain intact:
 
-It still performs **no HTML scraping, no automatic posting, no LLM calls, and no invented commission rates**.
+- v0.1 — transparent opportunity score
+- v0.2 — evidence store, hard gates, sensitivity, automation JSON
+- v0.3 — Amazon Creators API catalog integration, commission schedules, bounded HTTP
+
+It still performs **no storefront/YouTube HTML scraping, no automatic posting, no LLM content generation, and no invented economics**.
 
 ## Architecture in one minute
 
 ```text
-       Catalog providers
-      /        |         \
- mock     Amazon API    future
-      \        |         /
-          CatalogItem
-              |
-       explicit commission
-            schedule
-              |
-      independent research
-            signals
-              |
-              v
-      ProductCandidate
-              |
-       SQLite evidence
-   provenance + time + expiry
-              |
-              v
-    point-in-time resolution
-              |
-              v
- required evidence + hard gates
-              |
-       +------+------+
-       |             |
-     reject      transparent score
-                    + sensitivity
-                         |
-                         v
-                     shortlist
-                         |
-                 human research/review
+ Catalog providers                Market evidence providers
+ /      |       \                /      |       |       \
+mock  Amazon   future         keyword  YouTube  trend   replay
+ \      |       /                \      |       |       /
+     CatalogItem                  EvidenceObservation
+          |                              |
+   commission schedule             SQLite history
+          |                    provenance + time + expiry
+          +---------------+--------------+
+                          v
+                   ProductCandidate
+                          |
+                 point-in-time resolution
+                          |
+                    required hard gates
+                          |
+               transparent score + sensitivity
+                          |
+                       shortlist
+                          |
+                 human research / approval
+                          |
+                 future production adapters
 ```
 
-A catalog provider discovers facts about products. It does not decide whether a product is a good opportunity.
+A provider can acquire evidence. It cannot declare a product profitable and cannot bypass the decision engine.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/BEKO2210/Affiliate-Mate.git
 cd Affiliate-Mate
-
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install -e ".[dev]"
 ```
 
-The project installs two CLIs:
+The package installs three CLIs:
 
 ```text
 affiliate-mate          evidence + decision engine
 affiliate-mate-catalog  catalog discovery + commission tools
+affiliate-mate-intel    market intelligence + replay + clustering
 ```
 
-## Try catalog discovery without credentials
+## Credential-free market-intelligence run
 
-The mock provider is deterministic and makes no network calls:
-
-```bash
-affiliate-mate-catalog mock-search camera --marketplace DE
-```
-
-Machine-readable output:
+The repository includes illustrative keyword, trend, and replay fixtures:
 
 ```bash
-affiliate-mate-catalog mock-search camera \
-  --marketplace DE \
+affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
+  --keyword-csv sample_data/keyword_demand.example.csv \
+  --trend-csv sample_data/trend_series.example.csv \
+  --replay sample_data/market_replay.example.json \
   --format json
 ```
 
-The mock catalog is for development and demonstrations only. Its products and economics are not market data.
+These fixtures are development data, not current market claims.
+
+Now analyze with the persisted evidence:
+
+```bash
+affiliate-mate analyze sample_data/products.csv \
+  --evidence-db affiliate-mate.sqlite3 \
+  --min-evidence-confidence 0.5 \
+  --include-rejected
+```
+
+## YouTube market intelligence
+
+Affiliate-Mate uses the supported **YouTube Data API v3**, not HTML scraping. Configure an API key through the environment:
+
+```bash
+export YOUTUBE_API_KEY="..."
+```
+
+Collect live competition/content-gap evidence:
+
+```bash
+affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
+  --youtube \
+  --youtube-language de \
+  --youtube-max-results 25 \
+  --youtube-max-collections 10
+```
+
+One landscape uses `search.list` to discover the top videos and `videos.list` to obtain view statistics. The current scoring records its ingredients in observation metadata:
+
+**Competition**
+
+```text
+40% median-view strength
+25% query-token coverage
+20% recent-result share
+15% dominant-channel share
+```
+
+**Content gap**
+
+```text
+45% missing query-token coverage
+30% missing review/comparison-format coverage
+25% stale-result share
+```
+
+These are transparent heuristics over the sampled top results, not a model of YouTube's ranking algorithm.
+
+YouTube announced a granular quota transition for `search.list` in June 2026. Affiliate-Mate therefore exposes an explicit process-local collection budget rather than hiding unlimited search loops behind automation.
+
+See [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md).
+
+## Keyword demand and buyer intent
+
+Affiliate-Mate accepts user-owned or properly licensed exports:
+
+```csv
+product_id,marketplace,monthly_searches,buyer_intent,observed_at,source,confidence
+```
+
+Both values are explicit. Missing demand or buyer intent is not guessed.
+
+```bash
+affiliate-mate-intel collect sample_data/products.csv affiliate-mate.sqlite3 \
+  --keyword-csv sample_data/keyword_demand.example.csv
+```
+
+## Trend and seasonality
+
+Time-series input is intentionally minimal:
+
+```csv
+product_id,marketplace,observed_at,value
+```
+
+At least four points are required. v0.4 emits:
+
+- `trend_strength` — recent-half versus prior-half level, neutral around 50
+- `seasonality` — coefficient-of-variation intensity
+
+They are **descriptive auxiliary evidence**. v0.4 does not silently inject them into the opportunity score or present them as forecasts.
+
+## Evidence freshness
+
+Market truth ages. Default TTLs are explicit:
+
+| Signal | Default validity |
+|---|---:|
+| price | 1 day |
+| commission rate | 7 days |
+| YouTube competition | 7 days |
+| content gap | 7 days |
+| buyer intent | 14 days |
+| trend strength | 14 days |
+| monthly search demand | 30 days |
+| seasonality / evidence quality | 30 days |
+
+A provider-supplied expiry always wins; generic policy never extends it.
+
+## Collection health and replay
+
+`collect_evidence()` reports each provider as `success`, `empty`, or `failed`. Evidence is rejected when a provider returns a different product or marketplace than requested.
+
+Successful independent evidence may still be persisted if another provider fails. Use `--fail-fast` when a workflow requires all configured providers to succeed.
+
+`ReplayEvidenceProvider` makes captured numeric evidence reproducible without network calls. This is used for deterministic contributor workflows and regression tests, not to bypass normal expiry semantics.
+
+## Near-duplicate clustering
+
+Before spending live API calls, likely variants can be grouped by normalized title-token similarity:
+
+```bash
+affiliate-mate-intel cluster sample_data/products.csv \
+  --threshold 0.72 \
+  --format json
+```
+
+Clustering only groups within the same marketplace. It never deletes candidates or merges economics automatically.
+
+## Catalog discovery without credentials
+
+```bash
+affiliate-mate-catalog mock-search camera --marketplace DE --format json
+```
+
+The mock provider is deterministic and makes no network calls.
 
 ## Amazon Creators API
 
-Affiliate-Mate targets Amazon's Creators API rather than building new integration work around legacy PA-API 5.
-
-Configure credentials through environment variables only:
+Affiliate-Mate targets Amazon's Creators API rather than new work around legacy PA-API 5.
 
 ```bash
 export AMAZON_CREATORS_CREDENTIAL_ID="..."
 export AMAZON_CREATORS_CREDENTIAL_SECRET="..."
 export AMAZON_CREATORS_CREDENTIAL_VERSION="3.2"
 export AMAZON_ASSOCIATE_TAG="..."
-```
 
-Then search:
-
-```bash
 affiliate-mate-catalog amazon-search camera \
   --marketplace DE \
   --search-index All \
   --limit 10
 ```
 
-Or emit JSON:
+Live access requires valid access granted by Amazon. The project does not automate enrollment.
 
-```bash
-affiliate-mate-catalog amazon-search camera \
-  --marketplace DE \
-  --format json
-```
+See [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md).
 
-Live access requires valid credentials and access granted by Amazon. Affiliate-Mate does not automate Associates/Creators API enrollment.
+## Commission schedules are explicit
 
-See [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) for OAuth, marketplace, retry, parsing, and error-contract details.
-
-## Commission schedules are explicit evidence
-
-Affiliate-Mate does **not** ship permanent Amazon commission percentages. Rates can change and can differ by program, marketplace, and category.
-
-A schedule uses CSV:
+Affiliate-Mate does **not** ship permanent Amazon commission percentages. Rates can change and may differ by program, marketplace, and category.
 
 ```csv
 marketplace,category,commission_rate
@@ -160,7 +258,7 @@ DE,ExampleKitchen,0.0400
 *,*,0.0100
 ```
 
-The repository example is deliberately illustrative test data, **not current Amazon rates**:
+The repository sample is illustrative, **not a statement of current Amazon rates**.
 
 ```bash
 affiliate-mate-catalog commission-lookup \
@@ -168,40 +266,21 @@ affiliate-mate-catalog commission-lookup \
   DE ExampleElectronics
 ```
 
-Rule precedence is exact marketplace/category first, then explicit wildcard fallbacks. Duplicate normalized rules are rejected.
+## Evidence and decision engine
 
-## From catalog item to opportunity candidate
-
-A catalog result is intentionally incomplete. Before it can become a `ProductCandidate`, Affiliate-Mate requires:
-
-- current price
-- currency
-- commission category
-- explicit matching commission rule
-- monthly search evidence
-- YouTube competition evidence
-- buyer-intent evidence
-- content-gap evidence
-- evidence-quality assessment
-- CTR/conversion assumptions
-
-This prevents a catalog API from silently becoming a black-box recommendation system.
-
-## Existing evidence and decision engine
-
-Rank normalized candidates with the original transparent score:
+Rank normalized candidates:
 
 ```bash
 affiliate-mate score sample_data/products.csv --top 10
 ```
 
-Run the full evidence-first decision pipeline:
+Run hard gates, scoring, and sensitivity analysis:
 
 ```bash
 affiliate-mate analyze sample_data/products.csv --include-rejected
 ```
 
-Produce stable machine-readable output:
+Stable machine-readable report:
 
 ```bash
 affiliate-mate analyze sample_data/products.csv \
@@ -209,74 +288,26 @@ affiliate-mate analyze sample_data/products.csv \
   --format json > analysis.json
 ```
 
-The automation contract remains versioned as `affiliate-mate.analysis.v1`.
+The decision automation contract remains `affiliate-mate.analysis.v1`.
 
 ## Local evidence store
 
-Initialize a database:
-
 ```bash
 affiliate-mate evidence init affiliate-mate.sqlite3
-```
 
-Append an observation:
-
-```bash
 affiliate-mate evidence add affiliate-mate.sqlite3 demo-gps-1 monthly_searches 4200 \
   --source manual-keyword-check \
   --confidence 0.9 \
   --observed-at 2026-08-25T10:00:00Z
-```
 
-Read the latest valid observation:
-
-```bash
 affiliate-mate evidence latest affiliate-mate.sqlite3 demo-gps-1 monthly_searches \
   --as-of 2026-08-25T11:00:00Z \
   --format json
 ```
 
-Use stored evidence while analyzing candidates:
-
-```bash
-affiliate-mate analyze sample_data/products.csv \
-  --evidence-db affiliate-mate.sqlite3 \
-  --as-of 2026-08-25T11:00:00Z \
-  --min-evidence-confidence 0.5 \
-  --include-rejected
-```
-
-The resolver only applies supported, non-expired observations for the candidate's marketplace. Low-confidence observations can be skipped explicitly. Price evidence with a conflicting currency fails closed instead of being silently converted.
-
-## CSV analysis input
-
-Required columns:
-
-| Column | Meaning |
-|---|---|
-| `product_id` | Provider-independent product ID |
-| `title` | Product title |
-| `price` | Current product price |
-| `commission_rate` | Decimal rate, e.g. `0.03` for 3% |
-
-Evidence columns used by the default decision policy:
-
-- `monthly_searches`
-- `youtube_competition` (0–100, lower is better)
-- `buyer_intent` (0–100)
-- `content_gap` (0–100)
-- `evidence_quality` (0–100)
-
-Model assumptions:
-
-- `estimated_ctr` — default `0.04` if omitted
-- `estimated_conversion_rate` — default `0.03` if omitted
-
-For the legacy `score` command, omitted optional fields receive defaults for backward compatibility. `analyze` tracks which fields were explicitly supplied and rejects a candidate when required evidence is missing unless valid persisted evidence fills the gap.
+Evidence history keeps source, timestamp, marketplace, confidence, optional expiry, unit, and strict JSON metadata. Historical `as_of` evaluation excludes future observations.
 
 ## Transparent score
-
-The score remains inspectable:
 
 | Component | Weight |
 |---|---:|
@@ -293,7 +324,7 @@ Base estimated affiliate value per 1,000 views:
 1000 × estimated CTR × estimated conversion rate × commission per sale
 ```
 
-That number is assumption-driven, not a revenue promise. The engine therefore reports a sensitivity floor/base/ceiling around CTR and conversion assumptions.
+This is an assumption-driven estimate, not a revenue promise. The engine reports a CTR/conversion sensitivity floor/base/ceiling.
 
 ## Default rejection policy
 
@@ -307,67 +338,22 @@ That number is assumption-driven, not a revenue promise. The engine therefore re
 | Estimated value / 1,000 views | ≥ 1.00 |
 | Opportunity score | ≥ 45 |
 
-These are visible starting defaults, not universal truths. Every gate reports actual value, operator, threshold, pass/fail state, and explanation. CLI flags can override numeric thresholds.
-
-## Evidence semantics
-
-Affiliate-Mate treats evidence as time-dependent data:
-
-- every observation has a source and timezone-aware timestamp
-- observations may expire
-- historical evaluation can use an explicit `as_of`
-- future observations are excluded from past evaluations
-- expired evidence is excluded by default
-- history remains until explicit housekeeping removes it
-- confidence filtering is explicit
-- provider code acquires evidence; provider code does not decide opportunity quality
-
-See [`docs/EVIDENCE_ENGINE.md`](docs/EVIDENCE_ENGINE.md).
-
-## HTTP and provider safety
-
-The live catalog layer uses bounded behavior rather than infinite retries:
-
-- transient statuses can retry
-- rate-limit responses can honor `Retry-After`
-- exponential backoff is capped
-- non-retryable client errors fail immediately
-- malformed successful responses are protocol errors
-- one 401 can trigger one token refresh
-- repeated auth failure is surfaced
-- credential secrets are not included in exception text
-- marketplace currency mismatch fails closed
-
-All transport behavior is injectable for deterministic tests; CI does not need live Amazon credentials.
-
-## Automation contract
-
-`affiliate-mate analyze --format json` emits:
-
-- policy used
-- shortlist/reject summary
-- normalized product values
-- explicitly provided fields
-- every gate result and rejection reason
-- score breakdown and explanations
-- sensitivity grid
-- applied and skipped persisted evidence
-
-See [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md).
+A high weighted score cannot override a failed hard gate.
 
 ## Product principles
 
 1. **Evidence before generation.** Research first, content second.
 2. **Fail closed on ambiguous critical data.** Missing evidence must not become fake confidence.
-3. **Provider-neutral core.** Amazon is an adapter, not the architecture.
+3. **Provider-neutral core.** Amazon and YouTube are adapters, not the architecture.
 4. **Catalog facts are not market intelligence.** Discovery and judgment remain separate.
-5. **Time and provenance survive normalization.** Price, demand, and competition change.
+5. **Time and provenance survive normalization.** Market evidence expires.
 6. **No brittle scraping as a foundation.** Prefer supported APIs and user-owned exports.
-7. **No permanent hard-coded commission truth.** Economics come from explicit user data.
-8. **Human approval before publishing.** Automation assists judgment; it does not erase it.
-9. **Original content over mass production.** Repetitive template spam is a non-goal.
-10. **Every revenue estimate exposes its assumptions.**
-11. **Local-first where practical.** Core analysis works without cloud services.
+7. **No permanent hard-coded commission truth.** Economics come from explicit data.
+8. **No hidden unlimited collection.** Retries and source call budgets are bounded.
+9. **Auxiliary metrics do not silently alter scoring.** Scoring-policy changes must be explicit.
+10. **Human approval before publishing.** Automation assists judgment; it does not erase it.
+11. **Original content over mass production.** Repetitive template spam is a non-goal.
+12. **Every revenue estimate exposes its assumptions.**
 
 ## Documentation
 
@@ -375,12 +361,13 @@ See [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md).
 - [`docs/EVIDENCE_ENGINE.md`](docs/EVIDENCE_ENGINE.md) — evidence invariants and storage
 - [`docs/DECISION_POLICY.md`](docs/DECISION_POLICY.md) — hard gates and decisions
 - [`docs/ANALYSIS_OUTPUT.md`](docs/ANALYSIS_OUTPUT.md) — JSON automation contract
-- [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) — v0.3 provider contracts
+- [`docs/CATALOG_INTEGRATIONS.md`](docs/CATALOG_INTEGRATIONS.md) — catalog/OAuth contracts
+- [`docs/MARKET_INTELLIGENCE.md`](docs/MARKET_INTELLIGENCE.md) — v0.4 signals and collectors
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones
 
 ## Roadmap
 
-v0.3 establishes catalog acquisition. The next milestone is **v0.4 — Market Intelligence**: YouTube competition, keyword demand, trend/seasonality signals, content-gap evidence, clustering, and signal-specific freshness policies.
+v0.4 establishes auditable market intelligence. The next milestone is **v0.5 — Research Workspace**: product briefs, claim/evidence ledgers, user-supplied review clustering, citation-ready notes, research completeness gates, and explicit human approval history.
 
 ## Responsible use
 
