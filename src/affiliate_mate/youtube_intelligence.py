@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Callable
 from urllib.parse import urlencode
 
+from .budgets import SourceCallBudget
 from .evidence import EvidenceObservation
 from .freshness import SignalFreshnessPolicy
 from .http_client import HttpRequestError, JsonHttpClient, JsonProtocolError
@@ -169,13 +170,20 @@ def analyze_youtube_landscape(
 
 
 class YouTubeDataAPIClient:
-    """Small YouTube Data API v3 client using the project's bounded HTTP transport."""
+    """Small YouTube Data API v3 client using bounded HTTP and source budgets."""
 
-    def __init__(self, api_key: str, *, http: JsonHttpClient | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        http: JsonHttpClient | None = None,
+        budget: SourceCallBudget | None = None,
+    ) -> None:
         if not api_key.strip():
             raise ValueError("YouTube API key must not be empty")
         self._api_key = api_key
         self._http = http or JsonHttpClient()
+        self._budget = budget
 
     @classmethod
     def from_env(
@@ -183,12 +191,13 @@ class YouTubeDataAPIClient:
         env: dict[str, str] | None = None,
         *,
         http: JsonHttpClient | None = None,
+        budget: SourceCallBudget | None = None,
     ) -> "YouTubeDataAPIClient":
         values = os.environ if env is None else env
         api_key = values.get("YOUTUBE_API_KEY", "")
         if not api_key.strip():
             raise ValueError("missing required environment variable: YOUTUBE_API_KEY")
-        return cls(api_key, http=http)
+        return cls(api_key, http=http, budget=budget)
 
     def search_videos(
         self,
@@ -202,6 +211,13 @@ class YouTubeDataAPIClient:
             raise ValueError("query must not be empty")
         if not 1 <= max_results <= 50:
             raise ValueError("max_results must be between 1 and 50")
+        if self._budget is not None:
+            self._budget.reserve(
+                {
+                    "youtube.search.list": 1,
+                    "youtube.videos.list": 1,
+                }
+            )
         params = {
             "part": "snippet",
             "type": "video",
