@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from . import __version__
 from .exit_codes import ExitCode, exit_code_contract
@@ -279,7 +279,7 @@ def _completion_command(argv: list[str]) -> int:
 def _contract_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="affiliate-mate contract")
     parser.add_argument("name", choices=("exit-codes",))
-    args = parser.parse_args(argv)
+    parser.parse_args(argv)
     _json(exit_code_contract())
     return ExitCode.OK
 
