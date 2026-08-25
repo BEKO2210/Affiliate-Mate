@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Iterable
 
 from .learning_models import (
     CALIBRATION_SCHEMA_VERSION,
