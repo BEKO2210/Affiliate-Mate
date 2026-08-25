@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import os
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from importlib import metadata
 
 PLUGIN_ENTRYPOINT_GROUP = "affiliate_mate.plugins"
 PLUGIN_REGISTRY_SCHEMA_VERSION = "affiliate-mate.plugins.v1"
+PLUGIN_HEALTH_SCHEMA_VERSION = "affiliate-mate.plugin-health.v1"
 
 
 class PluginCapability(StrEnum):
@@ -20,6 +22,13 @@ class PluginCapability(StrEnum):
     OPERATIONS = "operations"
     PUBLISHING = "publishing"
     DIAGNOSTICS = "diagnostics"
+
+
+class PluginHealthStatus(StrEnum):
+    READY = "ready"
+    WARN = "warn"
+    BLOCKED = "blocked"
+    METADATA_ONLY = "metadata-only"
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +62,22 @@ class PluginDescriptor:
             "import_target": self.import_target,
             "installed": self.installed,
             "trusted_builtin": self.trusted_builtin,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class PluginHealth:
+    name: str
+    status: PluginHealthStatus
+    message: str
+    missing_requirements: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "status": self.status.value,
+            "message": self.message,
+            "missing_requirements": list(self.missing_requirements),
         }
 
 
@@ -107,6 +132,15 @@ _BUILTINS = (
     ),
 )
 
+_SECRET_REQUIREMENTS = {
+    "amazon-creators": (
+        "AMAZON_CREATORS_CREDENTIAL_ID",
+        "AMAZON_CREATORS_CREDENTIAL_SECRET",
+        "AMAZON_ASSOCIATE_TAG",
+    ),
+    "youtube-intelligence": ("YOUTUBE_API_KEY",),
+}
+
 
 def builtin_plugins() -> tuple[PluginDescriptor, ...]:
     return _BUILTINS
@@ -144,10 +178,78 @@ def discover_plugins(*, include_external: bool = True) -> tuple[PluginDescriptor
     return tuple(plugins)
 
 
+def diagnose_plugins(
+    *,
+    env: Mapping[str, str] | None = None,
+    include_external: bool = True,
+) -> tuple[PluginHealth, ...]:
+    """Evaluate adapter readiness without exposing secret values or loading external code."""
+
+    values = os.environ if env is None else env
+    results: list[PluginHealth] = []
+    for plugin in discover_plugins(include_external=include_external):
+        if not plugin.trusted_builtin:
+            results.append(
+                PluginHealth(
+                    name=plugin.name,
+                    status=PluginHealthStatus.METADATA_ONLY,
+                    message="External plugin discovered but not loaded during diagnostics.",
+                )
+            )
+            continue
+        requirements = _SECRET_REQUIREMENTS.get(plugin.name, ())
+        missing = tuple(name for name in requirements if not values.get(name, "").strip())
+        if missing:
+            results.append(
+                PluginHealth(
+                    name=plugin.name,
+                    status=PluginHealthStatus.BLOCKED,
+                    message="Required provider credentials are not present; values were not read out.",
+                    missing_requirements=missing,
+                )
+            )
+            continue
+        if plugin.name == "production-adapters":
+            results.append(
+                PluginHealth(
+                    name=plugin.name,
+                    status=PluginHealthStatus.WARN,
+                    message=(
+                        "Dry-run production adapters are available; live publishing remains "
+                        "an explicit operational opt-in."
+                    ),
+                )
+            )
+            continue
+        results.append(
+            PluginHealth(
+                name=plugin.name,
+                status=PluginHealthStatus.READY,
+                message="Adapter prerequisites are satisfied for its credential-free surface.",
+            )
+        )
+    return tuple(results)
+
+
 def plugin_registry_payload(*, include_external: bool = True) -> dict[str, object]:
     plugins = discover_plugins(include_external=include_external)
     return {
         "schema_version": PLUGIN_REGISTRY_SCHEMA_VERSION,
         "entrypoint_group": PLUGIN_ENTRYPOINT_GROUP,
         "plugins": [plugin.to_dict() for plugin in plugins],
+    }
+
+
+def plugin_health_payload(
+    *,
+    env: Mapping[str, str] | None = None,
+    include_external: bool = True,
+) -> dict[str, object]:
+    health = diagnose_plugins(env=env, include_external=include_external)
+    blocked = sum(item.status is PluginHealthStatus.BLOCKED for item in health)
+    return {
+        "schema_version": PLUGIN_HEALTH_SCHEMA_VERSION,
+        "healthy": blocked == 0,
+        "blocked": blocked,
+        "plugins": [item.to_dict() for item in health],
     }
