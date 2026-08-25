@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
 
-from .evidence import EvidenceObservation
+from affiliate_mate.evidence import EvidenceObservation
 
 
 _DEFAULT_TTLS = {
