@@ -32,3 +32,7 @@ jobs:
         run: python scripts/validate_site.py
       - name: Tests
         run: pytest -q
+      - name: Stable release contract
+        run: affiliate-mate-release verify
+      - name: Golden v1 acceptance
+        run: python scripts/v1_acceptance.py --max-seconds 20

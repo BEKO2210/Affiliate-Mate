@@ -24,7 +24,7 @@ def test_guided_init_plan_is_side_effect_free(tmp_path: Path, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["profile"] == "creator"
-    assert payload["release"]["channel"] == "beta"
+    assert payload["release"]["channel"] == "stable"
     assert payload["stores_secrets"] is False
     assert not root.exists()
 
@@ -81,8 +81,8 @@ def test_plugins_and_exit_code_contract_are_machine_readable(capsys) -> None:
 def test_release_and_config_reference_commands(capsys) -> None:
     assert main(["release", "channel", "--format", "json"]) == ExitCode.OK
     release = json.loads(capsys.readouterr().out)
-    assert release["channel"] == "beta"
-    assert release["publishing_allowed"] is False
+    assert release["channel"] == "stable"
+    assert release["publishing_allowed"] is True
 
     assert main(["config", "reference", "--format", "json"]) == ExitCode.OK
     reference = json.loads(capsys.readouterr().out)
