@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Self
+from typing import Any, Self
 
 from .learning_models import sha256_json
 
@@ -32,6 +33,26 @@ def _parse_bool(value: str, name: str) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise ConfigError(f"{name} must be one of true/false/1/0/yes/no/on/off")
+
+
+def _json_bool(value: object, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigError(f"{field_name} must be a JSON boolean")
+    return value
+
+
+def _json_optional_string(value: object, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ConfigError(f"{field_name} must be a string or null")
+    return value
+
+
+def _json_string(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ConfigError(f"{field_name} must be a string")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,18 +121,17 @@ class AppConfig:
         _strict_keys(database_raw, {"path"}, "database")
         _strict_keys(features_raw, {"live_publishing"}, "features")
         _strict_keys(observability_raw, {"jsonl_path"}, "observability")
+        database_path = database_raw.get("path", "affiliate-mate.sqlite3")
+        live_publishing = features_raw.get("live_publishing", False)
+        jsonl_path = observability_raw.get("jsonl_path")
         return cls(
-            schema_version=str(migrated["schema_version"]),
-            database=DatabaseConfig(path=str(database_raw.get("path", "affiliate-mate.sqlite3"))),
+            schema_version=_json_string(migrated["schema_version"], "schema_version"),
+            database=DatabaseConfig(path=_json_string(database_path, "database.path")),
             features=FeatureFlags(
-                live_publishing=bool(features_raw.get("live_publishing", False))
+                live_publishing=_json_bool(live_publishing, "features.live_publishing")
             ),
             observability=ObservabilityConfig(
-                jsonl_path=(
-                    None
-                    if observability_raw.get("jsonl_path") is None
-                    else str(observability_raw["jsonl_path"])
-                )
+                jsonl_path=_json_optional_string(jsonl_path, "observability.jsonl_path")
             ),
         )
 
@@ -127,11 +147,18 @@ def migrate_config(raw: Mapping[str, object]) -> dict[str, object]:
             {"schema_version", "database_path", "live_publishing", "telemetry_jsonl"},
             "legacy config",
         )
+        database_path = payload.get("database_path", "affiliate-mate.sqlite3")
+        live_publishing = payload.get("live_publishing", False)
+        telemetry_jsonl = payload.get("telemetry_jsonl")
         return {
             "schema_version": CONFIG_SCHEMA_VERSION,
-            "database": {"path": str(payload.get("database_path", "affiliate-mate.sqlite3"))},
-            "features": {"live_publishing": bool(payload.get("live_publishing", False))},
-            "observability": {"jsonl_path": payload.get("telemetry_jsonl")},
+            "database": {"path": _json_string(database_path, "database_path")},
+            "features": {
+                "live_publishing": _json_bool(live_publishing, "live_publishing")
+            },
+            "observability": {
+                "jsonl_path": _json_optional_string(telemetry_jsonl, "telemetry_jsonl")
+            },
         }
     if schema != CONFIG_SCHEMA_VERSION:
         raise ConfigError(f"unsupported config schema: {schema}")
