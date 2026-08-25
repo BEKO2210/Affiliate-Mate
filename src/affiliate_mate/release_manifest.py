@@ -105,13 +105,15 @@ def validate_release_manifest(payload: dict[str, Any]) -> dict[str, object]:
     created_at = datetime.fromisoformat(str(payload["created_at"]))
     _require_aware(created_at)
     raw_artifacts = payload["artifacts"]
-    if not isinstance(raw_artifacts, list) or not raw_artifacts:
-        raise ValueError("release manifest artifacts must be a non-empty array")
+    if not isinstance(raw_artifacts, list):
+        raise TypeError("release manifest artifacts must be an array")
+    if not raw_artifacts:
+        raise ValueError("release manifest artifacts must not be empty")
     normalized: list[dict[str, object]] = []
     seen: set[str] = set()
     for index, item in enumerate(raw_artifacts):
         if not isinstance(item, dict):
-            raise ValueError(f"release artifact {index} must be an object")
+            raise TypeError(f"release artifact {index} must be an object")
         if set(item) != {"path", "size_bytes", "sha256"}:
             raise ValueError(f"release artifact {index} keys are invalid")
         path = _safe_relative(str(item["path"]))
@@ -119,7 +121,9 @@ def validate_release_manifest(payload: dict[str, Any]) -> dict[str, object]:
             raise ValueError(f"duplicate release artifact: {path}")
         seen.add(path)
         size = item["size_bytes"]
-        if not isinstance(size, int) or size < 0:
+        if not isinstance(size, int):
+            raise TypeError(f"release artifact {path} size_bytes must be an integer")
+        if size < 0:
             raise ValueError(f"release artifact {path} has invalid size_bytes")
         digest = str(item["sha256"])
         if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
