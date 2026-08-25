@@ -10,13 +10,15 @@ from enum import StrEnum
 from math import isfinite
 from typing import Any
 
+from .money import currency_minor_unit_exponent, minor_units_to_major
+
 OUTCOME_SCHEMA_VERSION = "affiliate-mate.outcome-event.v1"
 FORECAST_SCHEMA_VERSION = "affiliate-mate.forecast-snapshot.v1"
 POLICY_SCHEMA_VERSION = "affiliate-mate.scoring-policy.v1"
 PERFORMANCE_SCHEMA_VERSION = "affiliate-mate.performance-report.v1"
 CALIBRATION_SCHEMA_VERSION = "affiliate-mate.calibration-report.v1"
-BACKTEST_SCHEMA_VERSION = "affiliate-mate.backtest-report.v1"
-WALK_FORWARD_SCHEMA_VERSION = "affiliate-mate.walk-forward-report.v1"
+BACKTEST_SCHEMA_VERSION = "affiliate-mate.backtest-report.v2"
+WALK_FORWARD_SCHEMA_VERSION = "affiliate-mate.walk-forward-report.v2"
 
 
 def canonical_json(value: object) -> str:
@@ -132,6 +134,7 @@ class OutcomeEvent:
                 raise ValueError("money outcomes must not carry count")
             if not self.currency or len(self.currency.strip()) != 3:
                 raise ValueError("money outcomes require a three-letter currency")
+            currency_minor_unit_exponent(self.currency)
         if self.package_digest is not None:
             digest = self.package_digest
             if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
@@ -333,7 +336,8 @@ class OutcomeTotals:
     def realized_value_per_1000_views(self) -> float | None:
         if self.views <= 0 or self.currency is None:
             return None
-        return (self.net_commission_minor / 100.0) * 1000.0 / self.views
+        net_major = minor_units_to_major(self.net_commission_minor, self.currency)
+        return net_major * 1000.0 / self.views
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self) | {
