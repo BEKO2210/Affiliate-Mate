@@ -9,6 +9,7 @@ from .research_models import EvidenceStance
 from .research_policy import (
     ResearchCompletenessReport,
     ResearchPolicy,
+    evaluate_approval_guard,
     evaluate_research_completeness,
 )
 from .research_store import ResearchWorkspaceStore
@@ -50,11 +51,11 @@ def build_research_brief(
         raise ValueError("review analysis belongs to a different marketplace")
 
     completeness = evaluate_research_completeness(store, product_id, policy=policy)
+    approval_guard = evaluate_approval_guard(store, product_id, policy=policy)
     sources = store.list_sources(product_id)
     source_refs = _source_ref_map([source.source_id for source in sources])
     claims = store.list_claims(product_id)
     notes = store.list_notes(product_id)
-    approval_state = store.current_approval_state(product_id)
 
     claim_payload: list[dict[str, object]] = []
     for claim in claims:
@@ -91,7 +92,9 @@ def build_research_brief(
             ),
         },
         "research": {
-            "approval_state": approval_state.value,
+            "approval_state": approval_guard.raw_state.value,
+            "production_ready": approval_guard.passed,
+            "approval_guard": approval_guard.to_dict(),
             "completeness": completeness.to_dict(),
             "sources": source_payload,
             "claims": claim_payload,
@@ -107,7 +110,8 @@ def build_research_brief(
             source_payload,
             claim_payload,
             note_payload,
-            approval_state.value,
+            approval_guard.raw_state.value,
+            approval_guard.passed,
             review_analysis,
         ),
     )
@@ -120,6 +124,7 @@ def _render_markdown(
     claims: list[dict[str, object]],
     notes: list[dict[str, object]],
     approval_state: str,
+    production_ready: bool,
     reviews: ReviewAnalysis | None,
 ) -> str:
     candidate = analysis.candidate
@@ -135,6 +140,7 @@ def _render_markdown(
         f"- Decision: {'SHORTLIST' if analysis.decision.accepted else 'REJECT'}",
         f"- Research approval: {approval_state.upper()}",
         f"- Research completeness: {'PASS' if completeness.passed else 'FAIL'}",
+        f"- Production-ready research package: {'YES' if production_ready else 'NO'}",
         "",
         "## Opportunity evidence",
         "",
@@ -224,6 +230,13 @@ def _render_markdown(
             [
                 "",
                 "> Warning: contradictory evidence is present. Resolve it before treating this brief as approved.",
+            ]
+        )
+    if approval_state == "approved" and not production_ready:
+        lines.extend(
+            [
+                "",
+                "> Warning: the raw approval is stale or incomplete. This research package is not production-ready.",
             ]
         )
     lines.append("")
