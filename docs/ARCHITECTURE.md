@@ -1,16 +1,22 @@
 # Architecture
 
-Affiliate-Mate separates **catalog acquisition**, **market evidence**, **opportunity decisions**, **editorial research**, **approval**, and **production planning** so no marketplace, data vendor, LLM, renderer, or publisher adapter becomes the system or the authority.
+Affiliate-Mate is a local-first, evidence-first system with explicit trust boundaries. Data acquisition, decision-making, editorial truth, production authorization, external side effects, and learning are separate capabilities.
+
+The architectural rule is:
+
+> **Later stages may consume earlier attestations; they may not retroactively change what those attestations meant.**
+
+## End-to-end data flow
 
 ```text
- external catalogs                 independent market sources
-        |                        /       |        |       \
-        v                   keyword   YouTube   trend   replay
-    CatalogItem                   \       |        |       /
-        |                          EvidenceObservation
- commission schedule                       |
-        |                           SQLite evidence history
-        +---------------+------------------+
+external catalogs                independent market sources
+       |                         /      |       |      \
+       v                    keyword  YouTube  trend   replay
+   CatalogItem                    \      |       |      /
+       |                           EvidenceObservation
+commission schedule                        |
+       |                            SQLite evidence history
+       +----------------+------------------+
                         v
                 ProductCandidate
                         |
@@ -23,129 +29,81 @@ Affiliate-Mate separates **catalog acquisition**, **market evidence**, **opportu
                      shortlist
                         |
                 Research Workspace
-              /          |          \
-          sources      claims       notes
+             sources + claims + citations
                         |
-                evidence links
-          supports / contradicts / context
+               completeness gates
                         |
-               claim state audit
+                 HUMAN APPROVAL
                         |
-              completeness gates
-                        |
-                HUMAN APPROVAL
-                        |
-          approval-bound research snapshot
-                    SHA-256
-                        |
-                Approval Guard
+             research snapshot digest
                         |
              ProductionAuthorization
-         approval event + research digest
                         |
-              Grounded ScriptRequest
-        approved claims + source locators
+                grounded production
                         |
-                ScriptGenerator
-                        |
-              Structured ScriptDocument
-                FACT -> claim IDs
-                        |
-          +-------------+-------------+
-          |             |             |
-         TTS         thumbnail      metadata
-          |             |             |
-          +-------------+-------------+
-                        |
-                render adapter plan
-                        |
-              ProductionPackage
-          lineage + plans + artifacts
-                    SHA-256
+              production package digest
                         |
              HUMAN PRODUCTION SIGNOFF
                         |
-                publish dry-run
+               publish gate / future IO
                         |
-               future live publisher
+                        v
+                 realized outcomes
+        views / clicks / orders / commission
+        refunds / reversals / attribution
+                        |
+                        v
+                   Learning Store
+           forecasts + outcomes + policies
+                        |
+              calibration / drift
+                        |
+             holdout / walk-forward
+                        |
+               HUMAN POLICY DECISION
+                        |
+                        +------> future policy
 ```
 
-Near-duplicate product clustering sits before expensive market collection and is advisory. Review clustering sits inside editorial research and is also advisory. Neither silently merges economics, deletes records, manufactures claims, or grants production authority.
+The feedback arrow does **not** point backward into historical records. Learning can inform a future policy version; it cannot mutate a past forecast, decision, approval, or outcome event.
 
 ## 1. Catalog acquisition
 
-Catalog adapters normalize provider-specific product payloads into `CatalogItem`. They may expose provider product ID, title, marketplace, current price/currency, product URL, brand, and category.
+Catalog adapters normalize provider-specific payloads into `CatalogItem`.
 
-They must not decide commercial attractiveness or invent demand, buyer intent, competition, or commission economics.
+They may provide product identity, title, marketplace, price/currency, product URL, brand, and category. They cannot decide commercial attractiveness or fabricate demand, intent, competition, or commissions.
 
-Current implementations:
+Current implementations include a deterministic mock provider and an Amazon Creators API adapter.
 
-- `MockCatalogProvider` — deterministic and credential-free
-- `AmazonCatalogProvider` — Amazon Creators API
+## 2. Market evidence
 
-Commission schedules remain explicit user-supplied data rather than permanent hard-coded marketplace truth.
+Numeric market observations enter through provider-neutral evidence producers and retain provenance, observation time, confidence, expiry, unit, and metadata.
 
-## 2. Market intelligence acquisition
+Current sources include keyword exports, YouTube Data API competition evidence, trend exports, and deterministic replay fixtures.
 
-Explicit evidence producers fill market-research signals:
+External sources acquire observations. They do not decide whether a product passes.
 
-- `CSVKeywordEvidenceProvider` → `monthly_searches`, `buyer_intent`
-- `YouTubeCompetitionProvider` → `youtube_competition`, `content_gap`
-- `CSVTrendEvidenceProvider` → auxiliary `trend_strength`, `seasonality`
-- `ReplayEvidenceProvider` → deterministic captured numeric observations
+## 3. Evidence history and point-in-time resolution
 
-Providers acquire observations. They do not decide whether a product passes.
+`SQLiteEvidenceStore` is append-oriented. `resolve_candidate_from_store()` selects the latest valid observation as of an explicit time.
 
-## 3. Transport, quotas, and freshness
+Historical evaluation never reads an observation from the future. Expired or low-confidence evidence remains visible in history rather than being rewritten.
 
-Live APIs use `JsonHttpClient` with bounded retry behavior. `SourceCallBudget` makes process-local collection limits explicit and atomic.
+## 4. Opportunity decision boundary
 
-`SignalFreshnessPolicy` attaches signal-specific TTLs. Producer-supplied expiry always wins; generic policy never extends it.
+`EvaluationPolicy` defines explicit hard gates. A candidate must pass all required gates before its transparent weighted score can produce a shortlist decision.
 
-Market evidence is therefore treated as time-dependent data, not permanent truth.
+A high score cannot override missing required evidence or a failed critical threshold.
 
-## 4. Evidence store
+Sensitivity analysis exposes how affiliate value changes when CTR and conversion assumptions move.
 
-`SQLiteEvidenceStore` persists numeric observations with:
+A shortlist means **research further**, not **publish**.
 
-- product and marketplace
-- signal/value/unit
-- source provenance
-- observed timestamp
-- confidence
-- optional expiry
-- strict JSON metadata
+## 5. Research truth boundary
 
-The store is append-oriented and point-in-time queryable. Historical evaluation excludes future observations.
+`ResearchWorkspaceStore` separates source provenance from product claims.
 
-## 5. Evidence resolution
-
-`resolve_candidate_from_store()` overlays the latest valid persisted observations onto a normalized candidate and retains an audit trail of applied and skipped evidence.
-
-Resolution fails closed when coercion would be dangerous. Examples include fractional integer signals and cross-currency price evidence.
-
-## 6. Opportunity decision boundary
-
-The opportunity engine has two layers:
-
-1. hard gates for required or weak critical conditions
-2. transparent weighted scoring for eligible opportunities
-
-A high score cannot override a failed gate. CTR and conversion assumptions are stressed through deterministic sensitivity analysis rather than presented as certainty.
-
-The stable automation contract remains:
-
-```text
-affiliate-mate.analysis.v1
-```
-
-A shortlist means **research further**. It never means **publish**.
-
-## 7. Research workspace
-
-`ResearchWorkspaceStore` can coexist in the same SQLite file as the numeric Evidence Engine because it owns a separate schema namespace.
-
-Primary records cover:
+Core records:
 
 ```text
 research_sources
@@ -158,288 +116,237 @@ approval_events
 approval_snapshots
 ```
 
-### Source records
+Claims have explicit support/contradiction/context links. Claim states and product approval states are append-only histories.
 
-Sources preserve product scope, kind, title, locator, publisher, retrieval time, optional publication time, optional checksum, and optional metadata.
+Research completeness fails closed when required source diversity, claim support, notes, or contradiction rules are not satisfied.
 
-A source record is provenance. It does not automatically prove any claim.
+## 6. Revision-bound human approval
 
-### Claims
+An `APPROVED` state alone is not production permission.
 
-Claims are immutable base records with separate append-only state history. A rejected claim must re-enter draft before it can become supported again, preserving the intervention in history.
-
-### Claim/evidence links
-
-Links state exactly how a source relates to a claim:
-
-- `supports`
-- `contradicts`
-- `context`
-
-Every link carries a source locator. Claim and source must belong to the same product. Contradictions are first-class data rather than inconvenient records to discard.
-
-### Notes
-
-Research notes are product-scoped and explicitly linked to claims. They form the editorial bridge between raw evidence and later production.
-
-## 8. Research completeness policy
-
-`evaluate_research_completeness()` is a second fail-closed gate layer, independent of the commercial opportunity score.
-
-Defaults require source diversity, active supported claims, notes covering active claims, explicit support links, stronger independent evidence for high-risk claims, and no unresolved contradictory links on supported claims.
-
-Rejected claims remain in history but do not count as active claims. Thresholds are explicit policy, not hidden model behavior.
-
-## 9. Approval integrity
-
-A raw approval state is not a sufficient production capability.
-
-When a guarded transition enters `APPROVED`, Affiliate-Mate records a deterministic SHA-256 of the editorial research revision. The snapshot includes sources, claims, complete claim-state history, evidence links, notes, and note/claim relationships. Approval events themselves are excluded from the digest so recording approval does not mutate the package being approved.
-
-`evaluate_approval_guard()` passes only when:
+The approval service binds an approval event to a deterministic SHA-256 research snapshot. The effective production guard requires:
 
 ```text
-raw state == APPROVED
+raw approval == APPROVED
 AND research completeness == PASS
 AND approval snapshot exists
-AND approved research digest == current research digest
+AND approval snapshot == current research digest
 ```
 
-Any later research mutation makes the old approval stale automatically.
+Any research mutation makes the prior approval stale.
 
-The research brief exposes this effective readiness rather than treating a historical `APPROVED` row as permanent permission.
+## 7. Production boundary
 
-## 10. User-supplied review analysis
+v0.6 converts a current effective approval into `ProductionAuthorization`.
 
-Review analysis operates only on user-supplied or properly licensed input. It does not scrape review websites.
+Production contracts retain:
 
-The deterministic baseline performs product/marketplace filtering, normalized-text SHA-256 duplicate detection, de-duplication before clustering, explainable token-overlap clustering, common-term labeling, and coarse orientation from supplied ratings.
+- product identity,
+- approval event,
+- approved research digest,
+- grounded claim IDs,
+- script digest,
+- metadata/disclosure,
+- adapter plans,
+- content-addressed artifacts,
+- package digest.
 
-This is editorial triage, not semantic ground truth and not product evidence by itself.
+Research approval and final production signoff are separate human checkpoints.
 
-## 11. Research brief boundary
+A publish dry-run refuses stale research authorization, unsupported factual script segments, stale package signoff, missing disclosure, missing required artifacts, artifact hash/size mismatch, or a side-effecting dry-run publisher.
 
-`build_research_brief()` combines the current opportunity analysis with audited research records. It renders recorded claims; it does not generate new claim text.
+## 8. Learning boundary
 
-Outputs include Markdown and the versioned JSON contract:
+v0.7 adds a separate learning schema. It does not place realized outcomes into the evidence store because realized outcomes have different semantics from market evidence.
+
+Primary tables:
 
 ```text
-affiliate-mate.research-brief.v1
+learning_policy_versions
+learning_forecasts
+learning_outcomes
+learning_policy_decisions
 ```
 
-The brief exposes opportunity decision, sensitivity, evidence resolution, source provenance, claim state/evidence links, notes, optional review themes, completeness, approval state, and approval freshness.
+### Forecast snapshots
 
-## 12. Production authorization boundary
-
-v0.6 does not hand production code a generic boolean. `require_production_authorization()` derives a scoped capability from the effective approval guard:
+A `ForecastSnapshot` freezes the state used for a real decision:
 
 ```text
-ProductionAuthorization {
-    product_id
-    approval_event_id
-    research_digest
-    created_at
-}
+product/content identity
+marketplace/category/price/currency
+prediction timestamp
+outcome horizon
+policy version + digest
+analysis digest
+candidate digest + candidate payload
+explicit input-field availability tracking
+accept/reject decision
+opportunity score
+predicted CTR
+predicted conversion rate
+predicted EV/1K
+commission per sale
+optional production-package lineage
 ```
 
-This object is revision-specific, not permanent. `assert_authorization_current()` re-runs the research approval guard and compares both approval event and research digest at the point of use.
+The candidate digest is self-verifying. A policy must be registered before the forecast timestamp.
 
-That closes the basic time-of-check/time-of-use failure mode where research is approved, mutated, and then rendered under the stale earlier decision.
+Forecast capture rejects resolved evidence whose observation time is later than the prediction time.
 
-## 13. Grounded script boundary
+### Outcome events
 
-`ScriptGenerator` is provider-neutral. Generation receives `ScriptRequest`, not unrestricted authority over the research database.
-
-A request contains:
-
-- product + approved research digest
-- language + working title
-- supported claims
-- source IDs and precise source locators
-- spoken + description disclosures
-- explicit generation constraints
-
-`ScriptDocument` is structured. A `FACT` segment must contain claim IDs. `validate_script_grounding()` rejects claims that are unknown, cross-product, no longer supported, or tied to stale research authorization.
-
-This guarantees structural lineage. It does **not** prove that arbitrary generated prose is semantically equivalent to a referenced claim. That residual risk is one reason the production package has a separate human signoff.
-
-The built-in `StrictTemplateScriptGenerator` is deliberately conservative: it reuses approved claim text and exists as a deterministic safe baseline.
-
-## 14. Production adapter contracts
-
-External production systems are interfaces:
+`OutcomeEvent` uses immutable provider-neutral source identities and three distinct clocks:
 
 ```text
-ScriptGenerator
-TTSAdapter
-VideoRenderAdapter
-ThumbnailAdapter
-PublisherAdapter
+effective_at  when the behavior/economic event occurred
+observed_at   when the upstream source exposed it
+ingested_at   when Affiliate-Mate learned it
 ```
 
-v0.6 ships planning-only implementations:
+It also preserves source reporting window, product, marketplace, content ID, optional production package digest, and either a count or integer minor-unit money amount.
+
+Outcome identities are idempotent but immutable. A replay with the same identity and different content is a conflict.
+
+Batch outcome imports are atomic.
+
+### No title matching
+
+Outcomes join forecasts through explicit product/content/package lineage. Product names and video titles are presentation fields, not database keys.
+
+### Late attribution
+
+A backtest cutoff `T` can use an outcome only if:
 
 ```text
-strict-template-v1
-dry-run-tts-v1
-dry-run-video-v1
-dry-run-thumbnail-v1
-dry-run-youtube-v1
+observed_at <= T
+AND ingested_at <= T
 ```
 
-The dry-run adapters compute deterministic input digests and expose intended parameters without contacting external services.
+The fact that an affiliate network later attributes a conversion to an earlier effective date does not make that conversion historically knowable.
 
-A future live adapter should separate `plan` from `execute`. `execute` must re-check current authorization immediately before its external side effect.
+## 9. Performance evaluation
 
-## 15. Metadata, disclosure, and thumbnail boundaries
+A forecast has an explicit prediction horizon and a configurable reporting lag.
 
-Affiliate metadata requires an absolute HTTP(S) URL and an explicit description disclosure. German and English disclosure strings are convenience templates, not a legal-compliance oracle.
-
-Thumbnail planning is intentionally constrained: the default brief tells renderers not to add ratings, awards, prices, performance claims, or comparison badges unless they are explicitly approved claims.
-
-Neither metadata nor thumbnail generation can grant publishing authority.
-
-## 16. Content-addressed artifact manifest
-
-`ArtifactRecord` captures:
+A performance report remains immature until:
 
 ```text
-logical_name
-kind
-safe relative path
-media type
-SHA-256
-byte length
+evaluated_at >= predicted_at + horizon + reporting_lag
 ```
 
-Absolute paths, parent traversal, and backslash ambiguity are rejected. A strict publish dry-run can reopen every artifact under an explicit root and verify byte count + SHA-256.
+Required outcome kinds must be explicitly present. Missing reports are not silently interpreted as zero.
 
-This detects a local file being replaced after the production package was assembled.
-
-Required live-publish artifact kinds currently are script, narration, video, thumbnail, and metadata. Captions are supported as an artifact kind but are not a hard requirement yet.
-
-## 17. Production package and second human checkpoint
-
-Research approval authorizes one research revision. It does not automatically approve generated copy or rendered media.
-
-`ProductionPackage` binds:
-
-- product ID
-- approval event ID
-- approved research digest
-- structured script
-- metadata + disclosure
-- thumbnail brief
-- adapter plans
-- artifact records
-- package creation time
-
-The canonical package has its own SHA-256 digest.
-
-`ProductionSignoff` is a second human checkpoint bound to that exact package digest. Any mutation to the package invalidates the old signoff.
-
-This signoff is an integrity/audit binding, not an asymmetric cryptographic identity signature. Stronger signatures can be layered later without changing the package digest model.
-
-## 18. Publish dry-run boundary
-
-`build_publish_dry_run()` is intentionally non-side-effecting. It checks:
-
-1. research authorization is still current
-2. package approval/research lineage matches authorization
-3. factual script claim lineage is still valid
-4. human production signoff matches the exact package digest
-5. affiliate disclosure remains in metadata
-6. required artifact records are present
-7. artifact bytes match the content-addressed manifest
-8. the selected publisher plan itself is non-side-effecting
-
-The result is versioned as:
+Core observational metrics:
 
 ```text
-affiliate-mate.publish-plan.v1
+CTR              = clicks / views
+conversion rate  = orders / clicks
+net commission   = gross - refunds - reversals
+realized EV/1K   = 1000 × net commission / views
 ```
 
-`ready_for_live_adapter=true` is not a publish. It says local preconditions passed for a later, separately implemented live adapter.
+These are predictive-performance measurements, not causal estimands.
 
-## 19. Versioned production contracts
+## 10. Calibration and drift
 
-v0.6 exposes:
+Calibration groups mature, complete reports by:
 
 ```text
-affiliate-mate.production-authorization.v1
-affiliate-mate.script.v1
-affiliate-mate.production-package.v1
-affiliate-mate.production-signoff.v1
-affiliate-mate.publish-plan.v1
+marketplace × category × price band
 ```
 
-Deserializers fail on unknown schema versions instead of silently guessing compatibility.
+CTR and conversion-rate reports expose Wilson 95% intervals. Minimum forecast/view/click/order thresholds prevent tiny cohorts from being represented as stable estimates.
 
-## 20. Future learning boundary
+Predicted-versus-realized relative error is classified as stable, drift, or insufficient according to explicit policy thresholds.
 
-v0.7 may ingest realized traffic and affiliate outcomes, but future observations must never alter what an earlier decision supposedly knew.
+Mixed-currency cohorts fail instead of being aggregated without FX evidence.
 
-Learning therefore needs separate event time and ingestion time, scoring-policy versioning, explicit train/evaluation splits, walk-forward evaluation, and target-leakage guards. Policy changes should be backtested before they can affect candidate ranking.
+## 11. Scoring-policy registry
 
-## Error boundaries
+A `ScoringPolicyVersion` is immutable and content-addressed.
+
+A child policy may reference an existing parent and cannot predate it. Forecasts bind to the exact registered policy digest.
+
+The registry is historical provenance. It is not an "active policy" switch.
+
+## 12. Chronological backtesting
+
+A candidate policy is evaluated on frozen historical candidates from a later holdout interval.
+
+The boundary is explicit:
 
 ```text
-TransportError
-    |
-HttpRequestError / provider API error
-    |
-provider protocol/semantic error
-    |
-collection validation failure
-    |
-opportunity hard gates
-    |
-research source/claim invariant failure
-    |
-ResearchConflictError / invalid state transition
-    |
-ResearchApprovalBlocked
-    |
-ApprovalGuard failure
-    |
-ProductionAuthorizationError
-    |
-ScriptGroundingError
-    |
-ProductionPackage / artifact invariant failure
-    |
-ProductionSignoff mismatch
-    |
-Publish dry-run failure
+policy created <= train_cutoff
+forecast.predicted_at >= train_cutoff
+forecast.predicted_at < evaluation_end
+outcomes known by evaluated_at only
 ```
 
-Failures remain explicit rather than being flattened into fake data or permissive defaults.
+The historical baseline decision is replayed from the frozen candidate. Any stored-vs-replayed baseline mismatch blocks promotion eligibility. This detects code or policy drift that would make the comparison non-reproducible.
 
-## Security and correctness constraints
+Promotion eligibility additionally requires minimum sample size, enough selected candidates, comparable realized currency, and no unacceptable realized-EV regression.
 
-- no dependency on brittle storefront or YouTube HTML scraping
-- no secret keys committed to the repository
-- no provider credential in normal exception messages
-- no hard-coded affiliate commission rates presented as permanent truth
-- no keyword-demand fabrication
-- no descriptive trend metric presented as a forecast
-- no revenue estimate without visible assumptions
-- retries and external-call budgets are bounded
-- timestamps and provenance survive normalization
-- historical analysis cannot read future evidence
-- evidence cannot silently cross product, marketplace, or currency boundaries
-- a source cannot silently become a supported claim
-- contradictory evidence cannot silently disappear
-- rejected claims remain auditable
-- high-risk claims require stronger independent evidence
-- research approval cannot bypass completeness gates
-- stale research approval cannot authorize production
-- production authorization is re-checked at point of use
-- factual script segments require supported claim lineage
-- an LLM reference to a claim ID is not treated as proof of semantic correctness
-- production package mutation invalidates human package signoff
-- artifact replacement is detectable through content hashes
-- metadata must carry the configured disclosure
-- the v0.6 publisher is planning-only
-- generation adapters do not implicitly receive publishing authority
-- any future live publisher must re-check authorization + package signoff immediately before side effects
+The backtest does not promote anything.
+
+## 13. Walk-forward evaluation
+
+A single split can be lucky.
+
+`walk_forward_backtest()` evaluates multiple chronological folds. Each fold uses an independently versioned candidate policy, and fold evaluation windows may not move backward or overlap.
+
+A walk-forward report is eligible only when every constituent fold satisfies its gates.
+
+## 14. Human policy decision
+
+Policy evaluation and policy activation are intentionally separate.
+
+`learning_policy_decisions` records an append-only human approve/reject event tied to an evaluation digest. It does not mutate a hidden active-policy pointer.
+
+A later operational configuration layer may choose which policy is active, but it must preserve this audit distinction.
+
+## 15. Error boundaries
+
+Failures remain typed/explicit rather than being flattened into plausible-looking data:
+
+```text
+transport/provider errors
+        ↓
+evidence validation
+        ↓
+opportunity gates
+        ↓
+research invariant / conflict
+        ↓
+research approval guard
+        ↓
+production authorization / grounding
+        ↓
+artifact/signoff/publish gate
+        ↓
+learning import conflict
+        ↓
+forecast time-integrity guard
+        ↓
+report maturity/completeness
+        ↓
+backtest / walk-forward promotion gates
+```
+
+## 16. Design constraints
+
+- supported APIs or user-owned/licensed exports over brittle scraping
+- provider credentials never become policy authority
+- no hard-coded permanent commission truth
+- evidence, claims, approvals, forecasts, and outcomes retain provenance
+- historical analysis cannot read future evidence or late-ingested outcomes
+- money accounting uses integer minor units
+- mixed currencies are never silently aggregated
+- model output is not evidence
+- research approval is revision-specific
+- production signoff is package-specific
+- generated artifacts are content-addressed
+- publishing side effects are opt-in and separately authorized
+- backtests are chronological
+- baseline replay must be reproducible
+- learned policy changes are never automatically promoted
