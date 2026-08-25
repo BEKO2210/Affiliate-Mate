@@ -18,38 +18,40 @@ def normalize_sdist(source: Path, destination: Path, *, epoch: int) -> None:
         raise FileNotFoundError(source)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    with tarfile.open(source, mode="r:gz") as archive:
+    with (
+        tarfile.open(source, mode="r:gz") as archive,
+        destination.open("wb") as raw,
+        gzip.GzipFile(
+            filename="",
+            mode="wb",
+            fileobj=raw,
+            compresslevel=9,
+            mtime=epoch,
+        ) as compressed,
+        tarfile.open(
+            fileobj=compressed,
+            mode="w",
+            format=tarfile.PAX_FORMAT,
+        ) as normalized,
+    ):
         members = sorted(archive.getmembers(), key=lambda member: member.name)
-        with destination.open("wb") as raw:
-            with gzip.GzipFile(
-                filename="",
-                mode="wb",
-                fileobj=raw,
-                compresslevel=9,
-                mtime=epoch,
-            ) as compressed:
-                with tarfile.open(
-                    fileobj=compressed,
-                    mode="w",
-                    format=tarfile.PAX_FORMAT,
-                ) as normalized:
-                    for member in members:
-                        info = copy.copy(member)
-                        info.mtime = epoch
-                        info.uid = 0
-                        info.gid = 0
-                        info.uname = ""
-                        info.gname = ""
-                        info.pax_headers = {}
-                        payload: io.BytesIO | None = None
-                        if member.isfile():
-                            extracted = archive.extractfile(member)
-                            if extracted is None:
-                                raise RuntimeError(f"cannot read sdist member: {member.name}")
-                            data = extracted.read()
-                            info.size = len(data)
-                            payload = io.BytesIO(data)
-                        normalized.addfile(info, payload)
+        for member in members:
+            info = copy.copy(member)
+            info.mtime = epoch
+            info.uid = 0
+            info.gid = 0
+            info.uname = ""
+            info.gname = ""
+            info.pax_headers = {}
+            payload: io.BytesIO | None = None
+            if member.isfile():
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    raise RuntimeError(f"cannot read sdist member: {member.name}")
+                data = extracted.read()
+                info.size = len(data)
+                payload = io.BytesIO(data)
+            normalized.addfile(info, payload)
 
 
 def _parser() -> argparse.ArgumentParser:
