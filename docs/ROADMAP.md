@@ -54,24 +54,40 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 
 ## v0.5 — Research Workspace
 
-- [ ] product brief generation from evidence
-- [ ] claim/evidence ledger
-- [ ] pros/cons clustering from user-supplied review data
-- [ ] citation-ready research notes
-- [ ] human approval state machine
-- [ ] audit trail for approval decisions
-- [ ] research completeness gates
-- [ ] source/citation coverage report
+- [x] product brief generation from evidence
+- [x] claim/evidence ledger with explicit evidence stance
+- [x] deterministic clustering from user-supplied review data
+- [x] exact duplicate review detection before clustering
+- [x] citation-ready research notes
+- [x] append-only claim state history
+- [x] human approval state machine
+- [x] append-only approval audit trail
+- [x] optimistic expected-state conflict detection
+- [x] research completeness gates
+- [x] stronger independent-support gates for high-risk claims
+- [x] contradictory-evidence approval blocker
+- [x] source/citation coverage report
+- [x] deterministic SHA-256 research snapshot
+- [x] approval-event binding to an immutable research revision
+- [x] stale-approval detection after any research mutation
+- [x] effective `production_ready` approval guard
+- [x] versioned research brief JSON contract
+- [x] dedicated `affiliate-mate-research` CLI
 
 ## v0.6 — Production Adapters
 
+- [ ] production entry gate consumes effective approval guard, never raw approval state
 - [ ] LLM-neutral script interface
+- [ ] structured script claim references
+- [ ] approved research digest retained in every production asset manifest
 - [ ] TTS adapter interface
 - [ ] video-render adapter interface
 - [ ] thumbnail brief generator
 - [ ] YouTube metadata generator
 - [ ] affiliate disclosure templates
+- [ ] asset manifest + deterministic render inputs
 - [ ] no-publish-without-approval invariant
+- [ ] publishing dry-run plan before any live adapter
 
 ## v0.7 — Learning Loop
 
@@ -92,3 +108,5 @@ A generic web-SERP scraper is deliberately not part of v0.4. Supported APIs or u
 - hiding score assumptions behind an opaque model
 - hard-coding affiliate commission rates as permanent truth
 - silently turning descriptive trend metrics into forecasts
+- approving unsupported or contradicted claims
+- treating a stale historical approval as permission for production

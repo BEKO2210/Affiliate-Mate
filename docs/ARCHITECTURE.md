@@ -1,165 +1,274 @@
 # Architecture
 
-Affiliate-Mate separates **catalog acquisition**, **market evidence**, **resolution**, **decision logic**, and **content production** so that no single marketplace, data vendor, or LLM becomes the system.
+Affiliate-Mate separates **catalog acquisition**, **market evidence**, **opportunity decisions**, **editorial research**, and future **content production** so that no marketplace, data vendor, LLM, or publisher adapter becomes the system.
 
 ```text
- external catalogs                  independent market sources
-        |                         /        |         |        \
-        v                    keyword    YouTube    trend    replay
-    CatalogItem                    \        |         |        /
-        |                           \       |         |       /
- commission schedule                 EvidenceObservation
-        |                                      |
-        +--------------------+-----------------+
-                             v
-                     SQLite evidence store
-                  provenance + time + expiry
-                             |
-                     point-in-time resolution
-                             |
-                      ProductCandidate
-                             |
-                       required gates
-                             |
-                 transparent score + sensitivity
-                             |
-                          shortlist
-                             |
-                  human research / approval
-                             |
-                  future production adapters
+ external catalogs                 independent market sources
+        |                        /       |        |       \
+        v                   keyword   YouTube   trend   replay
+    CatalogItem                   \       |        |       /
+        |                          EvidenceObservation
+ commission schedule                       |
+        |                           SQLite evidence history
+        +---------------+------------------+
+                        v
+                ProductCandidate
+                        |
+               point-in-time resolution
+                        |
+                hard opportunity gates
+                        |
+             transparent score + sensitivity
+                        |
+                     shortlist
+                        |
+                Research Workspace
+              /          |          \
+          sources      claims       notes
+                        |
+                evidence links
+          supports / contradicts / context
+                        |
+               claim state audit
+                        |
+              completeness gates
+                        |
+                human approval
+                        |
+               approved research brief
+                        |
+              future production adapters
 ```
 
-Near-duplicate clustering sits before expensive live collection and is advisory: it groups likely variants but never merges economics or deletes candidates.
+Near-duplicate product clustering sits before expensive collection and is advisory. Review clustering sits inside editorial research and is also advisory. Neither silently merges economics, deletes records, or manufactures claims.
 
 ## 1. Catalog acquisition
 
-Catalog adapters discover products and normalize provider-specific payloads into `CatalogItem` records. A catalog adapter may expose facts such as provider product ID, title, marketplace, price/currency, product detail URL, brand, and category label.
+Catalog adapters normalize provider-specific product payloads into `CatalogItem`. They may expose provider product ID, title, marketplace, current price/currency, product URL, brand, and category.
 
-It must **not** decide whether a product is commercially attractive or invent missing market evidence.
+They must not decide commercial attractiveness or invent demand, buyer intent, competition, or commission economics.
 
 Current implementations:
 
-- `MockCatalogProvider` — deterministic, credential-free contributor fixture
-- `AmazonCatalogProvider` — backed by Amazon Creators API
+- `MockCatalogProvider` — deterministic and credential-free
+- `AmazonCatalogProvider` — Amazon Creators API
 
-The existing `CandidateProvider` and `EvidenceProvider` protocols remain the provider-neutral boundaries for normalized candidates and observations.
+Commission schedules remain explicit user-supplied data rather than permanent hard-coded marketplace truth.
 
-## 2. Catalog economics boundary
+## 2. Market intelligence acquisition
 
-Affiliate commission rates are not treated as permanent catalog facts. `CommissionSchedule` is explicit user-supplied configuration/evidence with normalized marketplace/category keys and deterministic wildcard precedence.
-
-`candidate_from_catalog()` only promotes a `CatalogItem` after the caller supplies a valid price/currency, commission category, matching commission rule, and independent research signals.
-
-## 3. Market intelligence acquisition
-
-v0.4 adds explicit evidence producers instead of filling research fields with defaults:
+Explicit evidence producers fill market-research signals:
 
 - `CSVKeywordEvidenceProvider` → `monthly_searches`, `buyer_intent`
 - `YouTubeCompetitionProvider` → `youtube_competition`, `content_gap`
 - `CSVTrendEvidenceProvider` → auxiliary `trend_strength`, `seasonality`
 - `ReplayEvidenceProvider` → deterministic captured numeric observations
 
-The trend signals are intentionally auxiliary in v0.4. They are preserved and auditable but do not silently alter the existing score. Any future scoring change must be explicit and backtestable.
+Providers acquire observations. They do not decide whether a product passes.
 
-## 4. Source budgets and transport
+## 3. Transport, quotas, and freshness
 
-Live HTTP APIs use `JsonHttpClient`, which isolates retries and transport failures from provider semantics. Retries are bounded and transient failures can honor `Retry-After`.
+Live APIs use `JsonHttpClient` with bounded retry behavior. `SourceCallBudget` makes process-local collection limits explicit and atomic.
 
-`SourceCallBudget` adds a second safety boundary: an in-process workflow can reserve named API operations against explicit limits. Multi-operation reservations are atomic, so a failed reservation does not partially consume another operation's allowance.
+`SignalFreshnessPolicy` attaches signal-specific TTLs. Producer-supplied expiry always wins; generic policy never extends it.
 
-The YouTube client reserves one `youtube.search.list` and one `youtube.videos.list` operation before collecting a landscape. The CLI exposes a maximum number of YouTube product collections per process.
+Market evidence is therefore treated as time-dependent data, not permanent truth.
 
-These call budgets are safety rails, not replacements for provider-side quota enforcement.
+## 4. Evidence store
 
-## 5. Signal freshness
+`SQLiteEvidenceStore` persists numeric observations with:
 
-`SignalFreshnessPolicy` attaches default expiries to time-sensitive observations:
+- product and marketplace
+- signal/value/unit
+- source provenance
+- observed timestamp
+- confidence
+- optional expiry
+- strict JSON metadata
 
-- price: 1 day
-- commission rate: 7 days
-- YouTube competition/content gap: 7 days
-- buyer intent: 14 days
-- trend strength: 14 days
-- monthly search demand: 30 days
-- seasonality/evidence quality: 30 days
+The store is append-oriented and point-in-time queryable. Historical evaluation excludes future observations.
 
-An explicit provider expiry always wins. Generic policy never extends a producer-supplied validity window.
+## 5. Evidence resolution
 
-## 6. Collection orchestration
+`resolve_candidate_from_store()` overlays the latest valid persisted observations onto a normalized candidate and retains an audit trail of applied and skipped evidence.
 
-`collect_evidence()` executes independent evidence providers for one candidate and validates every returned observation before storage.
+Resolution fails closed when coercion would be dangerous. Examples include fractional integer signals and cross-currency price evidence.
 
-Provider run states are:
+## 6. Opportunity decision boundary
 
-- `success`
-- `empty`
-- `failed`
+The opportunity engine has two layers:
 
-A provider is marked failed when it raises or returns evidence for another product or marketplace. In normal mode, valid observations from unrelated providers can still be persisted. `fail_fast` is available for stricter workflows.
+1. hard gates for required/weak critical conditions
+2. transparent weighted scoring for eligible opportunities
 
-This prevents a broken adapter from contaminating another candidate's evidence history while still making partial collection observable.
+A high score cannot override a failed gate. CTR and conversion assumptions are stressed through deterministic sensitivity analysis rather than presented as certainty.
 
-## 7. Normalized candidate
+The stable automation contract remains:
 
-`ProductCandidate` remains the stable scoring shape. It contains working values rather than vendor-specific response objects. The stricter analysis path additionally preserves input completeness through `CandidateInput`.
+```text
+affiliate-mate.analysis.v1
+```
 
-## 8. Evidence store
+A shortlist means **research further**. It never means **publish**.
 
-`SQLiteEvidenceStore` persists numeric observations with product, signal, source, marketplace, observed timestamp, confidence, expiry, unit, and strict JSON metadata.
+## 7. Research workspace
 
-The store is append-oriented and point-in-time queryable. History and current validity are separate concepts.
+v0.5 adds `ResearchWorkspaceStore`, which can coexist in the same SQLite file as the numeric Evidence Engine because it owns a separate schema namespace (`research_schema_meta`).
 
-## 9. Evidence resolution
+Primary tables:
 
-`resolve_candidate_from_store()` overlays the latest valid persisted observation for each supported decision signal and retains an audit trail of applied or skipped evidence.
+```text
+research_sources
+research_claims
+claim_state_events
+claim_evidence_links
+research_notes
+note_claim_links
+approval_events
+```
 
-Resolution fails closed where coercion would be dangerous: integer signals cannot contain fractions and explicitly unit-tagged price evidence cannot cross currencies implicitly.
+### Source records
 
-## 10. Decision engine
+Sources preserve product scope, kind, title, locator, publisher, retrieval time, optional publication time, optional checksum, and optional metadata.
 
-The decision engine has two layers:
+A source record is provenance. It does not automatically prove any claim.
 
-1. **hard gates** — reject missing or weak critical conditions
-2. **transparent weighted score** — rank only eligible opportunities
+### Claims
 
-A high weighted score cannot override a failed hard gate.
+Claims are immutable base records with separate append-only state history:
 
-## 11. Sensitivity analysis
+```text
+DRAFT -> SUPPORTED
+   |       |
+   |       +----> DISPUTED
+   |                 |
+   +----> REJECTED <-+
+             |
+             +----> DRAFT
+```
 
-Base CTR and conversion assumptions are stressed over a deterministic grid. This exposes how fragile EV/1K is instead of presenting a single point estimate as certainty.
+A rejected claim cannot jump directly to supported. It must re-enter draft, leaving a visible audit history.
 
-## 12. Automation boundaries
+### Claim/evidence links
 
-The versioned `affiliate-mate.analysis.v1` contract remains the stable decision-report boundary.
+Links state exactly how a source relates to a claim:
 
-Catalog discovery and market-intelligence collection have separate outputs. This is deliberate: acquisition contracts may evolve without silently changing the decision-report schema.
+- `supports`
+- `contradicts`
+- `context`
 
-## 13. Human approval checkpoint
+Every link carries a source locator (page, section, timestamp, record identifier, etc.). Claim and source must belong to the same product.
 
-A shortlist is permission to research further, not permission to publish. Future research and production adapters must preserve explicit approval for product claims, rights, disclosures, and editorial quality.
+Contradiction is first-class data. It is not silently discarded to make a product look better.
 
-## 14. Production adapters
+### Notes
 
-Script, voice, video, thumbnail, and publishing tools belong at the edge of the system. The analysis core remains useful when none are configured.
+Research notes are product-scoped and explicitly linked to claims. Notes are the editorial bridge between raw evidence and a later script package.
+
+## 8. Research completeness policy
+
+`evaluate_research_completeness()` is a second fail-closed gate layer, independent of the commercial opportunity score.
+
+Defaults require:
+
+- at least two research sources
+- at least two distinct publishers
+- at least one active claim
+- at least one research note
+- every active claim explicitly in `supported` state
+- every active claim represented in a note
+- ordinary claims supported by at least one source
+- high-risk claims supported by at least two sources
+- high-risk claims supported by at least two distinct publishers
+- no contradictory links on supported claims
+
+Rejected claims remain in history but do not count as active claims.
+
+These thresholds are policy, not hidden model behavior.
+
+## 9. Human approval state machine
+
+Product approval is append-only:
+
+```text
+DRAFT -> IN_REVIEW -> APPROVED
+          |   ^           |
+          |   |           |
+          v   |           v
+       REJECTED          IN_REVIEW
+          |
+          +-----> DRAFT
+```
+
+Approval transitions support an `expected_state` parameter. If another reviewer changed the state first, the write fails with a conflict rather than overwriting the newer decision.
+
+`APPROVED` is special: completeness is evaluated immediately before the event is appended. Failed completeness means **no approval event is written**.
+
+An approved package can be reopened when new evidence appears.
+
+## 10. User-supplied review analysis
+
+Review analysis operates only on user-supplied or properly licensed input. It does not scrape review websites.
+
+The deterministic baseline:
+
+1. strict product + marketplace filtering
+2. normalized-text SHA-256 fingerprints
+3. exact duplicate counting
+4. duplicate removal before clustering
+5. explainable token-overlap similarity
+6. transitive union-find theme grouping
+7. common-term labels
+8. coarse orientation from supplied numeric ratings
+
+This is editorial triage, not semantic ground truth and not product evidence by itself.
+
+## 11. Research brief boundary
+
+`build_research_brief()` combines the current opportunity analysis with audited research records. It renders recorded claims; it does not generate new claim text.
+
+Outputs:
+
+- Markdown with deterministic `S1`, `S2`, ... source references
+- versioned JSON:
+
+```text
+affiliate-mate.research-brief.v1
+```
+
+The brief includes opportunity decision, sensitivity, optional persisted evidence resolution, research completeness, source provenance, claim states, evidence links, notes, optional review themes, and product approval state.
+
+## 12. Future production boundary
+
+v0.6 script/TTS/render/thumbnail/metadata adapters belong downstream of the approved research package.
+
+The intended invariant is stronger than "human in the loop":
+
+> **A production adapter must not accept an unapproved research package, and a live publishing adapter must not bypass that approval state.**
+
+Production should consume structured claim IDs/source references so unsupported claims cannot silently appear during generation.
 
 ## Error boundaries
 
 ```text
 TransportError
     |
-HttpRequestError
-    |
-provider-specific API error
+HttpRequestError / provider API error
     |
 provider protocol/semantic error
     |
 collection validation failure
     |
-local decision gates
+opportunity hard gates
+    |
+research source/claim invariant failure
+    |
+ResearchConflictError / invalid state transition
+    |
+ResearchApprovalBlocked
 ```
 
-Call-budget exhaustion is explicit (`BudgetExceededError`) rather than being disguised as missing evidence.
+Failures remain explicit rather than being flattened into fake data or permissive defaults.
 
 ## Design constraints
 
@@ -169,12 +278,14 @@ Call-budget exhaustion is explicit (`BudgetExceededError`) rather than being dis
 - no hard-coded affiliate commission rates presented as permanent truth
 - no keyword-demand fabrication
 - no descriptive trend metric presented as a forecast
-- no revenue claim without visible assumptions
-- retries and live-source call budgets are bounded
-- adapters fail closed on invalid critical data
+- no revenue estimate without visible assumptions
+- retries and external-call budgets are bounded
 - timestamps and provenance survive normalization
-- point-in-time analysis must not read future observations
+- historical analysis cannot read future evidence
 - evidence cannot silently cross product, marketplace, or currency boundaries
-- catalog discovery cannot bypass required research evidence
-- auxiliary market signals cannot silently change the score
-- no automatic publish path may bypass future approval state
+- a source cannot silently become a supported claim
+- contradictory evidence cannot silently disappear
+- rejected claims remain auditable
+- high-risk claims require stronger independent evidence
+- product approval cannot bypass completeness gates
+- future production cannot bypass explicit approval

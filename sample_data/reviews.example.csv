@@ -1,0 +1,6 @@
+review_id,product_id,marketplace,rating,title,body,source
+r-001,demo-headphones-1,DE,5,Comfort,"Comfort is excellent during long desk sessions and the pads stay cool.",example-user-export
+r-002,demo-headphones-1,DE,4,Comfort,"Very comfortable for long work sessions and the ear pads feel soft.",example-user-export
+r-003,demo-headphones-1,DE,2,Hinge,"The hinge started feeling loose after repeated folding.",example-user-export
+r-004,demo-headphones-1,DE,1,Hinge,"After a few weeks the folding hinge feels loose and noisy.",example-user-export
+r-005,demo-headphones-1,DE,5,Cable,"The detachable cable is convenient at a desk.",example-user-export
