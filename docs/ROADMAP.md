@@ -25,13 +25,16 @@
 
 ## v0.3 — Catalog Integrations
 
-- [ ] Amazon Creators API adapter
-- [ ] adapter contract tests
-- [ ] marketplace-aware currency handling
-- [ ] commission schedule import
-- [ ] rate-limit and retry handling
-- [ ] demo/mock provider for contributors without credentials
-- [ ] provider health/error taxonomy
+- [x] Amazon Creators API adapter
+- [x] adapter contract tests with no live credentials required
+- [x] marketplace-aware currency handling
+- [x] explicit commission schedule import
+- [x] bounded rate-limit and retry handling
+- [x] demo/mock provider for contributors without credentials
+- [x] provider health/error taxonomy
+- [x] OAuth token caching + bounded 401 refresh
+- [x] separate catalog-discovery CLI
+- [x] live-provider secrets only through environment variables
 
 ## v0.4 — Market Intelligence
 
@@ -41,6 +44,8 @@
 - [ ] SERP/content-gap evidence
 - [ ] duplicate / near-duplicate product clustering
 - [ ] evidence freshness policies per signal
+- [ ] source-level rate-limit budgets and collection run reports
+- [ ] deterministic fixture/replay mode for external providers
 
 ## v0.5 — Research Workspace
 
@@ -78,3 +83,4 @@
 - fake reviews or invented product experience
 - guaranteed-income claims
 - hiding score assumptions behind an opaque model
+- hard-coding affiliate commission rates as permanent truth
