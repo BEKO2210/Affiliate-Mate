@@ -7,16 +7,16 @@ import os
 import re
 import statistics
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Callable
 from urllib.parse import urlencode
 
-from .budgets import SourceCallBudget
-from .evidence import EvidenceObservation
-from .freshness import SignalFreshnessPolicy
-from .http_client import HttpRequestError, JsonHttpClient, JsonProtocolError
-from .models import ProductCandidate
+from affiliate_mate.budgets import SourceCallBudget
+from affiliate_mate.evidence import EvidenceObservation
+from affiliate_mate.freshness import SignalFreshnessPolicy
+from affiliate_mate.http_client import HttpRequestError, JsonHttpClient, JsonProtocolError
+from affiliate_mate.models import ProductCandidate
 
 
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
@@ -85,8 +85,8 @@ def _tokens(value: str) -> set[str]:
 
 def _parse_datetime(value: object) -> datetime:
     if not isinstance(value, str):
-        raise ValueError("YouTube publishedAt must be a string")
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        raise TypeError("YouTube publishedAt must be a string")
+    parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("YouTube publishedAt must include a timezone")
     return parsed.astimezone(UTC)
@@ -251,7 +251,7 @@ class YouTubeDataAPIClient:
                 continue
             try:
                 parsed_time = _parse_datetime(published_at)
-            except ValueError:
+            except (TypeError, ValueError):
                 continue
             search_rows[video_id] = (
                 html.unescape(title),
